@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+body { margin: 0; }
+.tiptap { min-height: 65vh; outline: none; }
+.tiptap p:first-child { margin-top: 0; }
+.tiptap h1 { margin: 1.5rem 0 0.75rem; font-size: 2rem; font-weight: 700; }
+.tiptap h2 { margin: 1.25rem 0 0.5rem; font-size: 1.5rem; font-weight: 650; }
+.tiptap ul, .tiptap ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+.tiptap ul { list-style: disc; }
+.tiptap ol { list-style: decimal; }

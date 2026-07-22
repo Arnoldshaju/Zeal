@@ -1,0 +1,28 @@
+# OS and editors
+.DS_Store
+.vscode/
+
+# JavaScript
+node_modules/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Preserved Django implementation
+legacy/**/.venv/
+legacy/**/db.sqlite3
+legacy/**/__pycache__/
+*.pyc
+
+# Python/Django backend
+venv/
+backend/.venv/
+backend/db.sqlite3
+backend/.env
+__pycache__/
+*.py[cod]
+backend/.venv-old/
