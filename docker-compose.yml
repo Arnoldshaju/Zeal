@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:17
-    container_name: syncspace-postgres
+    container_name: zeal-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: syncspace
-      POSTGRES_PASSWORD: syncspace
-      POSTGRES_DB: syncspace
+      POSTGRES_USER: zeal
+      POSTGRES_PASSWORD: zeal
+      POSTGRES_DB: zeal
     ports:
       - "5432:5432"
     volumes:
