@@ -13,7 +13,29 @@ export type DocumentMember = {
 };
 export type DocumentRecord = {
   id: string; title: string; content: Record<string, unknown>; owner: number;
-  owner_username: string; members: DocumentMember[]; created_at: string; updated_at: string;
+  owner_username: string; members: DocumentMember[]; workspace: string | null;
+  created_at: string; updated_at: string;
+};
+export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
+export type WorkspaceMember = {
+  id: string;
+  user: number;
+  username: string;
+  email: string;
+  role: WorkspaceRole;
+  joined_at: string;
+};
+export type WorkspaceRecord = {
+  id: string;
+  name: string;
+  slug: string;
+  owner: number;
+  owner_username: string;
+  current_role: WorkspaceRole;
+  document_count: number;
+  members: WorkspaceMember[];
+  created_at: string;
+  updated_at: string;
 };
 
 export function saveTokens(access: string, refresh: string) {

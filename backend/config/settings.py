@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "channels",
     "users",
+    "workspaces",
     "documents",
     "collaboration",
 ]
