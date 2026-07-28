@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Zeal",
-  description: "A focused notes application",
+  title: {
+    default: "Zeal",
+    template: "%s | Zeal",
+  },
+  description:
+    "Create, edit, and share documents with your team in real time.",
 };
 
 export default function RootLayout({

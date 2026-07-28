@@ -37,3 +37,18 @@ class AuthenticationTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_minimum_length_is_four_characters(self):
+        too_short = self.client.post(
+            "/api/auth/register/",
+            {"username": "short", "email": "short@example.com", "password": "abc"},
+            format="json",
+        )
+        self.assertEqual(too_short.status_code, status.HTTP_400_BAD_REQUEST)
+
+        accepted = self.client.post(
+            "/api/auth/register/",
+            {"username": "valid", "email": "valid@example.com", "password": "abcd"},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
