@@ -8,7 +8,17 @@ class MemberRole(models.TextChoices):
     OWNER = "OWNER", "Owner"
     EDITOR = "EDITOR", "Editor"
     VIEWER = "VIEWER", "Viewer"
+class Tag(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=50, unique=True)
+    color = models.CharField(max_length=7, default="#64748b")
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 class Document(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -19,6 +29,11 @@ class Document(models.Model):
         on_delete=models.CASCADE,
         related_name="owned_documents",
     )
+    tags = models.ManyToManyField(
+        Tag,
+        related_name="documents",
+        blank=True,
+      )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
