@@ -25,9 +25,15 @@ class WorkspaceApiTests(APITestCase):
         response = self.client.get("/api/workspaces/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["current_role"], WorkspaceRole.OWNER)
-        self.assertEqual(response.data[0]["slug"], f"personal-{self.owner.id}")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            response.data["results"][0]["current_role"],
+            WorkspaceRole.OWNER,
+        )
+        self.assertEqual(
+            response.data["results"][0]["slug"],
+            f"personal-{self.owner.id}",
+        )
 
     def test_owner_can_create_workspace_and_add_member(self):
         created = self.client.post(
@@ -76,5 +82,7 @@ class WorkspaceApiTests(APITestCase):
         response = self.client.get(f"/api/documents/?workspace={second_id}")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual([row["id"] for row in response.data], [str(shared.id)])
-
+        self.assertEqual(
+            [row["id"] for row in response.data["results"]],
+            [str(shared.id)],
+        )

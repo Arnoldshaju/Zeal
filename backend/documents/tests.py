@@ -82,7 +82,8 @@ class DocumentApiTests(APITestCase):
 
         listed = self.client.get("/api/documents/")
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(listed.data), 1)
+        self.assertEqual(listed.data["count"], 1)
+        self.assertEqual(len(listed.data["results"]), 1)
 
         updated = self.client.patch(
             f"/api/documents/{document_id}/",
@@ -100,7 +101,7 @@ class DocumentApiTests(APITestCase):
         document_id = created.data["id"]
         stranger = get_user_model().objects.create_user("stranger", "stranger@example.com", "password123")
         self.client.force_authenticate(stranger)
-        self.assertEqual(self.client.get("/api/documents/").data, [])
+        self.assertEqual(self.client.get("/api/documents/").data["results"], [])
         self.assertEqual(
             self.client.get(f"/api/documents/{document_id}/").status_code,
             status.HTTP_404_NOT_FOUND,
@@ -179,6 +180,90 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(resolved.status_code, status.HTTP_200_OK)
         self.assertTrue(resolved.data["is_resolved"])
 
+    def test_document_list_supports_search_ordering_and_pagination(self):
+        Document.objects.create(title="Alpha plan", owner=self.user)
+        Document.objects.create(title="Beta plan", owner=self.user)
+
+        response = self.client.get(
+            "/api/documents/?search=plan&ordering=title"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(
+            [document["title"] for document in response.data["results"]],
+            ["Alpha plan", "Beta plan"],
+        )
+
+    def test_document_list_is_paginated(self):
+        Document.objects.bulk_create(
+            [
+                Document(title=f"Document {number:02}", owner=self.user)
+                for number in range(21)
+            ]
+        )
+
+        response = self.client.get("/api/documents/?ordering=title")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 21)
+        self.assertEqual(len(response.data["results"]), 20)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_invalid_workspace_filter_is_rejected(self):
+        response = self.client.get("/api/documents/?workspace=not-a-uuid")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_viewer_cannot_update_document(self):
+        viewer = get_user_model().objects.create_user(
+            "viewer",
+            "viewer@example.com",
+            "password123",
+        )
+        document = Document.objects.create(title="Read only", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=viewer,
+            role=MemberRole.VIEWER,
+        )
+        self.client.force_authenticate(viewer)
+
+        response = self.client.patch(
+            f"/api/documents/{document.id}/",
+            {"title": "Forbidden update"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_editor_cannot_manage_document_members(self):
+        editor = get_user_model().objects.create_user(
+            "restricted-editor",
+            "restricted-editor@example.com",
+            "password123",
+        )
+        candidate = get_user_model().objects.create_user(
+            "candidate",
+            "candidate@example.com",
+            "password123",
+        )
+        document = Document.objects.create(title="Owner controls members", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=editor,
+            role=MemberRole.EDITOR,
+        )
+        self.client.force_authenticate(editor)
+
+        response = self.client.post(
+            f"/api/documents/{document.id}/members/",
+            {"username": candidate.username, "role": MemberRole.VIEWER},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_document_update_service_creates_revision(self):
         document = Document.objects.create(
             title="Original",
@@ -198,3 +283,32 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(revision.title, "Original")
         document.refresh_from_db()
         self.assertEqual(document.title, "Updated")
+
+    def test_successive_updates_create_unique_revision_versions(self):
+        document = Document.objects.create(
+            title="Version zero",
+            content={"type": "doc", "content": []},
+            owner=self.user,
+        )
+
+        update_document_with_revision(
+            document=document,
+            author=self.user,
+            new_title="Version one",
+            new_content={"version": 1},
+        )
+        update_document_with_revision(
+            document=document,
+            author=self.user,
+            new_title="Version two",
+            new_content={"version": 2},
+        )
+
+        self.assertEqual(
+            list(
+                DocumentRevision.objects.filter(document=document)
+                .order_by("version")
+                .values_list("version", flat=True)
+            ),
+            [1, 2],
+        )

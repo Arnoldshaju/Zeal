@@ -1,0 +1,16 @@
+[run]
+branch = True
+source = .
+omit =
+    */migrations/*
+    */tests.py
+    manage.py
+
+[report]
+show_missing = True
+skip_covered = True
+
+[paths]
+source =
+    .
+    /app

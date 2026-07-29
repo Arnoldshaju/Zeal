@@ -15,6 +15,7 @@ from .services import create_personal_workspace, create_workspace
 
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
+    queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -28,6 +29,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             .prefetch_related("members__user")
             .annotate(document_count=Count("documents", distinct=True))
             .distinct()
+            .order_by("name")
         )
 
     def perform_create(self, serializer):
@@ -170,4 +172,3 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         if role not in {WorkspaceRole.OWNER, WorkspaceRole.ADMIN}:
             raise PermissionDenied("Only workspace owners and admins can do that.")
         return role
-

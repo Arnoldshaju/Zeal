@@ -7,7 +7,6 @@ from django.utils.http import urlsafe_base64_decode
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -34,8 +33,9 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
 
-class CurrentUserView(APIView):
+class CurrentUserView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserSerializer
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
@@ -45,8 +45,9 @@ class LoginView(TokenObtainPairView):
     serializer_class = VerifiedTokenObtainPairSerializer
 
 
-class EmailVerificationRequestView(APIView):
+class EmailVerificationRequestView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmailRequestSerializer
 
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)
@@ -67,8 +68,9 @@ class EmailVerificationRequestView(APIView):
         return Response(data)
 
 
-class EmailVerificationConfirmView(APIView):
+class EmailVerificationConfirmView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = TokenConfirmationSerializer
 
     def post(self, request):
         serializer = TokenConfirmationSerializer(data=request.data)
@@ -91,8 +93,9 @@ class EmailVerificationConfirmView(APIView):
             return None
 
 
-class PasswordResetRequestView(APIView):
+class PasswordResetRequestView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmailRequestSerializer
 
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)
@@ -110,8 +113,9 @@ class PasswordResetRequestView(APIView):
         return Response(data)
 
 
-class PasswordResetConfirmView(APIView):
+class PasswordResetConfirmView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = PasswordResetConfirmSerializer
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
@@ -127,8 +131,9 @@ class PasswordResetConfirmView(APIView):
         return Response({"detail": "Password updated. You can now sign in."})
 
 
-class LogoutView(APIView):
+class LogoutView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = LogoutSerializer
 
     def post(self, request):
         serializer = LogoutSerializer(data=request.data)

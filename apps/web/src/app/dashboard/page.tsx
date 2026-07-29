@@ -8,6 +8,8 @@ import {
   clearTokens,
   DocumentRecord,
   getRefreshToken,
+  PaginatedResponse,
+  paginatedResults,
   readError,
   User,
   WorkspaceRecord,
@@ -60,7 +62,10 @@ export default function DashboardPage() {
         return;
       }
       if (!response.ok) throw new Error(await readError(response));
-      setDocuments((await response.json()) as DocumentRecord[]);
+      const data = (await response.json()) as
+        | PaginatedResponse<DocumentRecord>
+        | DocumentRecord[];
+      setDocuments(paginatedResults(data));
     } finally {
       setDocumentsLoading(false);
     }
@@ -76,7 +81,10 @@ export default function DashboardPage() {
         if (!meResponse.ok) throw new Error(await readError(meResponse));
         if (!workspaceResponse.ok) throw new Error(await readError(workspaceResponse));
         const account = (await meResponse.json()) as User;
-        const available = (await workspaceResponse.json()) as WorkspaceRecord[];
+        const workspaceData = (await workspaceResponse.json()) as
+          | PaginatedResponse<WorkspaceRecord>
+          | WorkspaceRecord[];
+        const available = paginatedResults(workspaceData);
         setUser(account);
         setWorkspaces(available);
         const remembered = localStorage.getItem(SELECTED_WORKSPACE_KEY);

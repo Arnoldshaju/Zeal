@@ -12,8 +12,13 @@ from workspaces.services import create_personal_workspace
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
+    queryset = Document.objects.all()
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated, HasDocumentPermission]
+    filterset_fields = ["workspace", "owner"]
+    search_fields = ["title"]
+    ordering_fields = ["created_at", "updated_at", "title"]
+    ordering = ["-updated_at"]
 
     def get_queryset(self):
         user = self.request.user
@@ -28,9 +33,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             .prefetch_related("members__user", "tags")
             .distinct()
         )
-        workspace_id = self.request.query_params.get("workspace")
-        if workspace_id:
-            queryset = queryset.filter(workspace_id=workspace_id)
         return queryset
 
     @transaction.atomic

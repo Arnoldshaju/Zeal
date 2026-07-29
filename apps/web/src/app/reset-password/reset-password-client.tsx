@@ -43,7 +43,7 @@ export function ResetPasswordClient({ uid, token }: { uid: string; token: string
           <>
             <label className="block text-sm font-medium">
               New password
-              <input name="password" type="password" minLength={4} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              <input name="password" type="password" minLength={8} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
             </label>
             <button disabled={busy} className="w-full rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white disabled:opacity-50">
               {busy ? "Updating…" : "Update password"}

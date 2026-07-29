@@ -2,10 +2,10 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
+from .tasks import send_account_email
 from .tokens import email_verification_token_generator
 
 
@@ -14,16 +14,15 @@ logger = logging.getLogger(__name__)
 
 def _send_account_email(subject, message, recipient):
     try:
-        return send_mail(
+        return send_account_email.delay(
             subject,
             message,
             settings.DEFAULT_FROM_EMAIL,
-            [recipient],
+            recipient,
         )
     except Exception:
-        # Email is an external service. A provider outage or recipient restriction
-        # must not turn a successfully committed account operation into HTTP 500.
-        logger.exception("Could not send account email to %s", recipient)
+        # A queue outage must not turn a committed account operation into HTTP 500.
+        logger.exception("Could not queue account email to %s", recipient)
         return 0
 
 
