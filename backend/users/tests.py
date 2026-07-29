@@ -7,6 +7,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
+from django.db import IntegrityError, transaction
 from django.test import override_settings
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -385,3 +386,44 @@ class UserPlatformTests(APITestCase):
         self.assertTrue(second.data["duplicate"])
         self.assertEqual(WebhookEvent.objects.count(), 1)
         self.assertIsNotNone(WebhookEvent.objects.get().processed_at)
+
+    @override_settings(WEBHOOK_SECRET="test-webhook-secret")
+    def test_webhook_rejects_invalid_secret(self):
+        response = self.client.post(
+            "/api/auth/webhooks/",
+            {
+                "provider": "example",
+                "event_id": "event-invalid-secret",
+                "payload": {"action": "updated"},
+            },
+            format="json",
+            HTTP_X_ZEAL_WEBHOOK_SECRET="wrong-secret",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(WebhookEvent.objects.exists())
+
+    def test_social_provider_account_must_be_unique(self):
+        first_user = get_user_model().objects.create_user(
+            "social-first",
+            "social-first@example.com",
+            "password123",
+        )
+        second_user = get_user_model().objects.create_user(
+            "social-second",
+            "social-second@example.com",
+            "password123",
+        )
+        SocialAccount.objects.create(
+            user=first_user,
+            provider="github",
+            provider_user_id="github-shared-id",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                SocialAccount.objects.create(
+                    user=second_user,
+                    provider="github",
+                    provider_user_id="github-shared-id",
+                )

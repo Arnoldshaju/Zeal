@@ -32,5 +32,5 @@ def status_page(request):
     return render(
         request,
         "status.html",
-        {"service": "Zeal API", "status": "Running"},
+        {"service": "Zeal API", "status": "Running locally"},
     )
