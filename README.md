@@ -95,3 +95,67 @@ Docker Compose creates six services:
     USER ||--o{ SOCIAL_ACCOUNT : links
     USER ||--o{ IDEMPOTENCY_RECORD : owns
     WORKSPACE ||--o{ WORKSPACE_INVITATION : issues
+    WORKSPACE ||--o{ AUDIT_LOG : records
+```
+- Non-empty comment bodies
+- Unique pending invitations per workspace and email
+- Atomic document creation and owner-membership creation
+- Idempotent document creation per user and request key
+- Unique external social-provider accounts and webhook event IDs
+- PostgreSQL row locking for concurrent revision numbers
+- Indexed workspace document, revision, comment, and audit queries
+
+## Quick start
+
+Compose will:
+
+1. Start PostgreSQL and wait for its health check.
+1. Start PostgreSQL and Redis and wait for their health checks.
+2. Run Django database migrations.
+3. Start the Django/Daphne backend.
+4. Start the Next.js frontend.
+4. Start the Celery worker and Celery Beat scheduler.
+5. Start the Next.js frontend.
+
+Open [http://localhost:3000](http://localhost:3000), register an account, select your personal workspace, and create a document.
+
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f postgres
+docker compose logs -f redis
+docker compose logs -f celery-worker
+docker compose logs -f celery-beat
+```
+
+### Django
+# Test suite
+docker compose exec backend python manage.py test
+
+# Test coverage
+docker compose exec backend coverage run manage.py test
+docker compose exec backend coverage report
+
+# Collect Django static files
+docker compose exec backend python manage.py collectstatic --noinput
+
+# Create or refresh the standard authorization groups
+docker compose exec backend python manage.py seed_roles
+
+# Django administrator
+docker compose exec backend python manage.py createsuperuser
+```
+
+The administration interface is available at [http://localhost:8000/admin/](http://localhost:8000/admin/).
+The Django template status page is available at [http://localhost:8000/status/](http://localhost:8000/status/).
+Interactive API documentation is available at [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/).
+
+### Frontend
+
+\q
+```
+
+### Redis and background jobs
+
+```bash
+# Check Redis
+docker compose exec redis redis-cli ping
