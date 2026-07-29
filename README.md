@@ -1,161 +1,220 @@
+# Zeal
+
+> A workspace-based collaborative document editor built with Next.js, Django, PostgreSQL, Redis, Celery, and WebSockets.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Django](https://img.shields.io/badge/Django-4.2-0C4B33?logo=django)](https://www.djangoproject.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![Celery](https://img.shields.io/badge/Celery-5-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
-[![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-Zeal lets people organize documents into personal or team workspaces, manage member permissions, edit rich-text content, and receive live updates through WebSockets. The full development stack runs in containers and works with OrbStack or any Docker Compose-compatible engine.
-## Highlights
+Zeal lets users create personal and team workspaces, manage permissions, edit rich-text documents, upload attachments, and collaborate through live WebSocket updates. The complete development stack runs through Docker Compose and works with OrbStack.
 
-- User registration and JWT-based authentication
-- Custom Django user model and reusable Django authorization groups
-- Automatic access-token renewal
-- Email verification for new accounts
-- Password-reset request and confirmation flow
-- Rich-text editing powered by Tiptap
-- Create, view, edit, and delete documents
-- Document tags, comments, and revision-history foundation
-- Document attachments with media-file validation
-- Search, filtering, ordering, and paginated API responses
+> [!NOTE]
+> Zeal is under active development. APIs and user-facing workflows may change.
+
+## Features
+
+- Custom Django user model and authorization groups
+- JWT authentication, rotation, refresh, logout, and blacklisting
+- Email verification and password reset
+- Personal and team workspaces
+- Owner, administrator, member, editor, and viewer permissions
+- Rich-text document editing with Tiptap
+- Tags, comments, attachments, and document revisions
+- PostgreSQL row locking for concurrent revision creation
+- Filtering, search, ordering, and pagination
 - Idempotent document creation
-- Real-time document updates over WebSockets
-- Redis-backed Channels for multi-process WebSocket delivery
-- Live collaborator presence
-- Owner, editor, and viewer permissions
-- Role-based document sharing
-- Read-only access for viewers
-- Responsive Next.js interface
-- Django administration
-- Automated backend tests
-- OpenAPI schema and interactive Swagger documentation
-- Celery background email delivery with automatic retries
+- Redis-backed WebSocket collaboration and presence
+- Celery background email and webhook processing
 - Celery Beat scheduled invitation cleanup
 - Signed, idempotent webhook ingestion
-- 40 automated backend tests and coverage reporting
+- OpenAPI schema and interactive Swagger documentation
+- 40 backend tests and approximately 82% measured coverage
 
-## Workspaces
+## Architecture
 
-Every user receives a personal workspace when their account is created. Existing users and documents are also migrated automatically: each existing user receives a personal workspace, and their documents are assigned to it.
-Every user receives a personal workspace when their account is created.
-
-Users can:
-
-  │                     │
+```text
+Browser
+  ├── HTTP :3000 ──► Next.js frontend
   │                     └── /api ──► Django REST API :8000
-  │
   └── WebSocket :8000 ────────────► Django Channels
-  └── WebSocket :8000 ────────────► Django Channels ──► Redis
                                            │
-                                           ▼
-                                      PostgreSQL 17
                          ┌─────────────────┴─────────────────┐
                          ▼                                   ▼
-                    PostgreSQL 17                    Celery worker
-                                                           ▲
+                    PostgreSQL                          Redis
                                                            │
-                                                     Celery Beat
+                                            ┌──────────────┴──────────────┐
+                                            ▼                             ▼
+                                      Celery worker                  Celery Beat
 ```
-
-Docker Compose creates three services:
-Docker Compose creates six services:
 
 | Service | Container | Purpose | Host port |
 | --- | --- | --- | --- |
 | `frontend` | `zeal-frontend` | Next.js development server | `3000` |
-| `backend` | `zeal-backend` | Django, REST API, and Daphne | `8000` |
-| `postgres` | `zeal-postgres` | PostgreSQL database | Internal only |
-| `redis` | `zeal-redis` | Channels, caching, throttling, and Celery broker | `6379` |
-| `celery-worker` | `zeal-celery-worker` | Background email and webhook jobs | Internal only |
-| `celery-beat` | `zeal-celery-beat` | Recurring job scheduler | Internal only |
+| `backend` | `zeal-backend` | Django REST API and Daphne | `8000` |
+| `postgres` | `zeal-postgres` | Permanent relational data | Internal |
+| `redis` | `zeal-redis` | Channels, cache, throttling, and Celery | `6379` |
+| `celery-worker` | `zeal-celery-worker` | Background jobs | Internal |
+| `celery-beat` | `zeal-celery-beat` | Recurring-job scheduler | Internal |
+
+Redis logical databases are separated by responsibility:
+
+```text
+0 → Channels/WebSockets
+1 → Django cache and API throttling
+2 → Celery task queue
+3 → Celery results
+```
 
 ## Technology
 
 | Layer | Tools |
 | --- | --- |
 | Frontend | Next.js, React, TypeScript, Tailwind CSS, Tiptap |
-| Backend | Python, Django, Django REST Framework, Django Channels |
-| Authentication | Simple JWT |
-| Real-time transport | WebSockets served by Daphne |
-| Backend | Python, Django, Django REST Framework, django-filter, drf-spectacular |
+| Backend | Python, Django, Django REST Framework, django-filter |
 | Authentication | Custom Django user, groups, Simple JWT |
-| Real-time transport | WebSockets served by Daphne and distributed through Redis |
+| API documentation | drf-spectacular and Swagger UI |
 | Database | PostgreSQL 17 |
+| Real-time communication | Django Channels, Daphne, Redis |
 | Background jobs | Celery worker and Celery Beat |
-| Cache and queues | Redis 7 |
-| Local infrastructure | Docker Compose and OrbStack |
-
-## Database design
-    DOCUMENT }o--o{ TAG : categorized_by
-    DOCUMENT ||--o{ DOCUMENT_REVISION : has_history
-    DOCUMENT ||--o{ COMMENT : contains
-    DOCUMENT ||--o{ DOCUMENT_ATTACHMENT : contains
-    USER ||--o{ COMMENT : writes
-    USER ||--o{ SOCIAL_ACCOUNT : links
-    USER ||--o{ IDEMPOTENCY_RECORD : owns
-    WORKSPACE ||--o{ WORKSPACE_INVITATION : issues
-    WORKSPACE ||--o{ AUDIT_LOG : records
-```
-- Non-empty comment bodies
-- Unique pending invitations per workspace and email
-- Atomic document creation and owner-membership creation
-- Idempotent document creation per user and request key
-- Unique external social-provider accounts and webhook event IDs
-- PostgreSQL row locking for concurrent revision numbers
-- Indexed workspace document, revision, comment, and audit queries
+| Development infrastructure | Docker Compose and OrbStack |
 
 ## Quick start
 
-Compose will:
+Install Git and [OrbStack](https://orbstack.dev/), then:
 
-1. Start PostgreSQL and wait for its health check.
-1. Start PostgreSQL and Redis and wait for their health checks.
-2. Run Django database migrations.
-3. Start the Django/Daphne backend.
-4. Start the Next.js frontend.
-4. Start the Celery worker and Celery Beat scheduler.
-5. Start the Next.js frontend.
-
-Open [http://localhost:3000](http://localhost:3000), register an account, select your personal workspace, and create a document.
-
-docker compose logs -f backend
-docker compose logs -f frontend
-docker compose logs -f postgres
-docker compose logs -f redis
-docker compose logs -f celery-worker
-docker compose logs -f celery-beat
+```bash
+git clone https://github.com/Arnoldshaju/Zeal.git
+cd Zeal
+open -a OrbStack
+docker context use orbstack
+docker compose up --build -d
+docker compose ps
 ```
 
-### Django
-# Test suite
-docker compose exec backend python manage.py test
+Open:
 
-# Test coverage
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- API health: [http://localhost:8000/api/health/](http://localhost:8000/api/health/)
+- Swagger: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+- Django status template: [http://localhost:8000/status/](http://localhost:8000/status/)
+- Django admin: [http://localhost:8000/admin/](http://localhost:8000/admin/)
+
+Register a new account from the frontend. New users automatically receive a personal workspace.
+
+## Development commands
+
+```bash
+# Service status and logs
+docker compose ps
+docker compose logs -f
+docker compose logs -f backend
+docker compose logs -f celery-worker
+docker compose logs -f celery-beat
+
+# Django
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py seed_roles
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py collectstatic --noinput
+
+# Tests and coverage
+docker compose exec backend python manage.py test
+docker compose exec backend coverage erase
 docker compose exec backend coverage run manage.py test
 docker compose exec backend coverage report
 
-# Collect Django static files
-docker compose exec backend python manage.py collectstatic --noinput
+# Frontend validation
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run build
 
-# Create or refresh the standard authorization groups
-docker compose exec backend python manage.py seed_roles
-
-# Django administrator
-docker compose exec backend python manage.py createsuperuser
+# Infrastructure checks
+docker compose exec redis redis-cli ping
+docker compose exec postgres psql -U zeal -d zeal
 ```
 
-The administration interface is available at [http://localhost:8000/admin/](http://localhost:8000/admin/).
-The Django template status page is available at [http://localhost:8000/status/](http://localhost:8000/status/).
-Interactive API documentation is available at [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/).
-
-### Frontend
-
-\q
-```
-
-### Redis and background jobs
+Stop containers while preserving PostgreSQL data:
 
 ```bash
-# Check Redis
-docker compose exec redis redis-cli ping
+docker compose down
+```
+
+> [!WARNING]
+> `docker compose down -v` deletes the PostgreSQL volume and all local application data.
+
+## API overview
+
+Authentication:
+
+```text
+POST /api/auth/register/
+POST /api/auth/login/
+POST /api/auth/refresh/
+POST /api/auth/logout/
+GET  /api/auth/me/
+POST /api/auth/verify-email/request/
+POST /api/auth/verify-email/confirm/
+POST /api/auth/password-reset/request/
+POST /api/auth/password-reset/confirm/
+POST /api/auth/webhooks/
+```
+
+Workspaces:
+
+```text
+GET    /api/workspaces/
+POST   /api/workspaces/
+GET    /api/workspaces/{id}/
+PATCH  /api/workspaces/{id}/
+DELETE /api/workspaces/{id}/
+GET    /api/workspaces/{id}/members/
+POST   /api/workspaces/{id}/members/
+PATCH  /api/workspaces/{id}/members/{user_id}/
+DELETE /api/workspaces/{id}/members/{user_id}/
+```
+
+Documents support standard CRUD plus:
+
+```text
+GET  /api/documents/?workspace={workspace_id}
+GET  /api/documents/?search=project
+GET  /api/documents/?ordering=-updated_at
+GET  /api/documents/?page=2
+POST /api/documents/{id}/attachments/
+GET  /api/documents/{id}/attachments/
+```
+
+Send an `Idempotency-Key` header with document creation to make retries safe. Repeating the same request returns the original response; reusing the key with different data returns HTTP `409`.
+
+The same application endpoints are available under `/api/v1/`.
+
+## Project structure
+
+```text
+Zeal/
+├── apps/web/                    # Next.js frontend
+├── backend/
+│   ├── collaboration/           # WebSocket consumers and middleware
+│   ├── config/                  # Django, Celery, URLs, and settings
+│   ├── documents/               # Documents, revisions, uploads, and API
+│   ├── templates/               # Django templates
+│   ├── users/                   # Users, authentication, tasks, and webhooks
+│   └── workspaces/              # Workspaces, roles, invitations, and audit logs
+├── database/                    # Database design and operational documentation
+├── docker-compose.yml
+├── LEARNING_GUIDE.md
+└── README.md
+```
+
+## Learning
+
+Follow [LEARNING_GUIDE.md](LEARNING_GUIDE.md) to study and practise Django Weeks 24–30 using the features already implemented in Zeal.
+
+## Current limitations
+
+- Social-account storage exists, but real Google/GitHub OAuth callbacks are not connected.
+- Attachments do not yet have controls in the Next.js editor.
+- Revision history, tags, audit logs, and workspace invitations need complete frontend workflows.
+- Production security and deployment hardening are Week 31 work.
