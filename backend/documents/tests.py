@@ -1,7 +1,11 @@
 from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from django.contrib.auth import get_user_model
+from django.db import close_old_connections
 from django.test import TestCase
+from django.test import TransactionTestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -307,6 +311,54 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(
             list(
                 DocumentRevision.objects.filter(document=document)
+                .order_by("version")
+                .values_list("version", flat=True)
+            ),
+            [1, 2],
+        )
+
+
+class DocumentRevisionConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            "concurrent-owner",
+            "concurrent-owner@example.com",
+            "password123",
+        )
+        self.document = Document.objects.create(
+            title="Original",
+            content={"version": 0},
+            owner=self.user,
+        )
+
+    def test_simultaneous_updates_receive_unique_revision_versions(self):
+        barrier = Barrier(2)
+
+        def update(number):
+            close_old_connections()
+            try:
+                document = Document.objects.get(pk=self.document.pk)
+                user = get_user_model().objects.get(pk=self.user.pk)
+                barrier.wait()
+                update_document_with_revision(
+                    document=document,
+                    author=user,
+                    new_title=f"Update {number}",
+                    new_content={"version": number},
+                )
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(update, number) for number in (1, 2)]
+            for future in futures:
+                future.result()
+
+        self.assertEqual(
+            list(
+                DocumentRevision.objects.filter(document=self.document)
                 .order_by("version")
                 .values_list("version", flat=True)
             ),
