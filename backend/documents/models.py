@@ -30,6 +30,9 @@ class DocumentQuerySet(models.QuerySet):
     def recently_updated(self):
         return self.order_by("-updated_at")
 
+    def containing_title(self, text):
+        return self.filter(title__icontains=text)
+
 
 class DocumentManager(models.Manager):
     def get_queryset(self):
@@ -40,6 +43,9 @@ class DocumentManager(models.Manager):
 
     def recently_updated(self):
         return self.get_queryset().recently_updated()
+
+    def containing_title(self, text):
+        return self.get_queryset().containing_title(text)
 
 
 class Document(models.Model):

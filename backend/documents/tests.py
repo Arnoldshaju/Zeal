@@ -62,6 +62,17 @@ class DocumentManagerTests(TestCase):
 
         self.assertEqual(documents, [newer_document, older_document])
 
+    def test_containing_title_matches_case_insensitively(self):
+        matching_document = DocumentFactory(
+            title="PostgreSQL Project",
+            owner=self.owner,
+        )
+        DocumentFactory(title="Meeting notes", owner=self.owner)
+
+        documents = Document.objects.containing_title("project")
+
+        self.assertQuerySetEqual(documents, [matching_document])
+
 
 class DocumentApiTests(APITestCase):
     def setUp(self):
@@ -174,6 +185,46 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
         self.assertEqual(len(listed.data), 1)
 
+    def test_document_attachment_rejects_unsupported_extension(self):
+        document = Document.objects.create(title="With file", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=self.user,
+            role=MemberRole.OWNER,
+        )
+
+        response = self.client.post(
+            f"/api/documents/{document.id}/attachments/",
+            {"file": SimpleUploadedFile("malware.exe", b"not executable")},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Unsupported file type", response.data["file"])
+        self.assertEqual(document.attachments.count(), 0)
+
+    def test_document_attachment_rejects_file_larger_than_ten_mb(self):
+        document = Document.objects.create(title="With file", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=self.user,
+            role=MemberRole.OWNER,
+        )
+        oversized_file = SimpleUploadedFile(
+            "large.txt",
+            b"x" * (10 * 1024 * 1024 + 1),
+        )
+
+        response = self.client.post(
+            f"/api/documents/{document.id}/attachments/",
+            {"file": oversized_file},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["file"], "Files cannot be larger than 10 MB.")
+        self.assertEqual(document.attachments.count(), 0)
+
     def test_document_creation_is_idempotent(self):
         payload = {"title": "Created once"}
         headers = {"HTTP_IDEMPOTENCY_KEY": "document-create-1"}
@@ -195,6 +246,27 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(replay.status_code, status.HTTP_201_CREATED)
         self.assertEqual(replay["Idempotency-Replayed"], "true")
         self.assertEqual(Document.objects.filter(title="Created once").count(), 1)
+
+    def test_idempotency_key_cannot_be_reused_with_different_data(self):
+        headers = {"HTTP_IDEMPOTENCY_KEY": "document-create-conflict"}
+
+        first = self.client.post(
+            "/api/documents/",
+            {"title": "First request"},
+            format="json",
+            **headers,
+        )
+        conflict = self.client.post(
+            "/api/documents/",
+            {"title": "Different request"},
+            format="json",
+            **headers,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(conflict.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(Document.objects.filter(title="First request").count(), 1)
+        self.assertFalse(Document.objects.filter(title="Different request").exists())
 
     def test_editor_can_create_comment_and_owner_can_resolve_it(self):
         editor = get_user_model().objects.create_user(

@@ -1,5 +1,6 @@
 import hashlib
 import json
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.serializers.json import DjangoJSONEncoder
@@ -25,6 +26,9 @@ from .serializers import (
     DocumentSerializer,
 )
 from workspaces.services import create_personal_workspace
+
+
+ALLOWED_ATTACHMENT_EXTENSIONS = {".txt", ".pdf", ".png", ".jpg"}
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -131,6 +135,17 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if uploaded_file.size > 10 * 1024 * 1024:
             return Response(
                 {"file": "Files cannot be larger than 10 MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        extension = Path(uploaded_file.name).suffix.lower()
+        if extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
+            return Response(
+                {
+                    "file": (
+                        "Unsupported file type. Allowed extensions are "
+                        ".txt, .pdf, .png, and .jpg."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         attachment = DocumentAttachment.objects.create(
