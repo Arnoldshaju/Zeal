@@ -43,6 +43,7 @@ export function saveTokens(access: string, refresh: string) {
   localStorage.setItem("syncspace:refresh", refresh);
 }
 export function getAccessToken() { return localStorage.getItem("syncspace:access"); }
+export function getRefreshToken() { return localStorage.getItem("syncspace:refresh"); }
 export function clearTokens() {
   localStorage.removeItem("syncspace:access");
   localStorage.removeItem("syncspace:refresh");
@@ -55,8 +56,9 @@ async function refreshAccessToken() {
     signal: requestSignal(),
   });
   if (!response.ok) { clearTokens(); return null; }
-  const data = (await response.json()) as { access: string };
+  const data = (await response.json()) as { access: string; refresh?: string };
   localStorage.setItem("syncspace:access", data.access);
+  if (data.refresh) localStorage.setItem("syncspace:refresh", data.refresh);
   return data.access;
 }
 export async function apiFetch(path: string, init: RequestInit = {}, retry = true): Promise<Response> {

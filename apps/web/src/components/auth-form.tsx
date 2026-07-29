@@ -19,6 +19,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
         });
         if (!response.ok) throw new Error(await readError(response));
+        router.push(`/verify-email?email=${encodeURIComponent(String(values.email))}`);
+        return;
       }
       const response = await fetch(`${API_URL}/auth/login/`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -39,6 +41,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <label className="block text-sm font-medium">Password<input name="password" type="password" minLength={4} required className={input} /></label>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <button disabled={busy} className="w-full rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white disabled:opacity-50">{busy ? "Please wait…" : register ? "Register" : "Sign in"}</button>
+      {!register && <p className="text-center text-sm"><Link className="font-semibold text-slate-700 underline" href="/forgot-password">Forgot your password?</Link></p>}
       <p className="text-center text-sm text-slate-600">{register ? "Already registered? " : "Need an account? "}<Link className="font-semibold underline" href={register ? "/login" : "/register"}>{register ? "Sign in" : "Register"}</Link></p>
     </form>
   </main>;
