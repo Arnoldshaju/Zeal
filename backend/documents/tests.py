@@ -1,9 +1,66 @@
+from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import close_old_connections
+from django.test import TestCase
+from django.test import TransactionTestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from users.factories import UserFactory
+
+from .factories import DocumentFactory
 from .models import Document, DocumentMember, DocumentRevision, MemberRole, Tag
 from .services import update_document_with_revision
+
+
+class DocumentManagerTests(TestCase):
+    def setUp(self):
+        self.owner = UserFactory(
+            username="manager-owner",
+            email="manager-owner@example.com",
+        )
+        self.other_user = UserFactory(
+            username="manager-other",
+            email="manager-other@example.com",
+        )
+
+    def test_owned_by_returns_only_documents_belonging_to_user(self):
+        owned_document = DocumentFactory(
+            title="Owned",
+            owner=self.owner,
+        )
+        DocumentFactory(
+            title="Someone else's",
+            owner=self.other_user,
+        )
+
+        documents = Document.objects.owned_by(self.owner)
+
+        self.assertQuerySetEqual(documents, [owned_document])
+
+    def test_recently_updated_orders_newest_document_first(self):
+        older_document = Document.objects.create(
+            title="Older",
+            owner=self.owner,
+        )
+        newer_document = Document.objects.create(
+            title="Newer",
+            owner=self.owner,
+        )
+        now = timezone.now()
+        Document.objects.filter(pk=older_document.pk).update(
+            updated_at=now - timedelta(days=1)
+        )
+        Document.objects.filter(pk=newer_document.pk).update(updated_at=now)
+
+        documents = list(Document.objects.recently_updated())
+
+        self.assertEqual(documents, [newer_document, older_document])
 
 
 class DocumentApiTests(APITestCase):
@@ -30,7 +87,8 @@ class DocumentApiTests(APITestCase):
 
         listed = self.client.get("/api/documents/")
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(listed.data), 1)
+        self.assertEqual(listed.data["count"], 1)
+        self.assertEqual(len(listed.data["results"]), 1)
 
         updated = self.client.patch(
             f"/api/documents/{document_id}/",
@@ -48,7 +106,7 @@ class DocumentApiTests(APITestCase):
         document_id = created.data["id"]
         stranger = get_user_model().objects.create_user("stranger", "stranger@example.com", "password123")
         self.client.force_authenticate(stranger)
-        self.assertEqual(self.client.get("/api/documents/").data, [])
+        self.assertEqual(self.client.get("/api/documents/").data["results"], [])
         self.assertEqual(
             self.client.get(f"/api/documents/{document_id}/").status_code,
             status.HTTP_404_NOT_FOUND,
@@ -94,6 +152,50 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data["tags"]), 2)
 
+    def test_document_attachment_can_be_uploaded_and_listed(self):
+        document = Document.objects.create(title="With file", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=self.user,
+            role=MemberRole.OWNER,
+        )
+
+        uploaded = self.client.post(
+            f"/api/documents/{document.id}/attachments/",
+            {"file": SimpleUploadedFile("notes.txt", b"Zeal attachment")},
+            format="multipart",
+        )
+        listed = self.client.get(
+            f"/api/documents/{document.id}/attachments/"
+        )
+
+        self.assertEqual(uploaded.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(uploaded.data["original_name"], "notes.txt")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(listed.data), 1)
+
+    def test_document_creation_is_idempotent(self):
+        payload = {"title": "Created once"}
+        headers = {"HTTP_IDEMPOTENCY_KEY": "document-create-1"}
+
+        first = self.client.post(
+            "/api/documents/",
+            payload,
+            format="json",
+            **headers,
+        )
+        replay = self.client.post(
+            "/api/documents/",
+            payload,
+            format="json",
+            **headers,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(replay.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(replay["Idempotency-Replayed"], "true")
+        self.assertEqual(Document.objects.filter(title="Created once").count(), 1)
+
     def test_editor_can_create_comment_and_owner_can_resolve_it(self):
         editor = get_user_model().objects.create_user(
             "editor", "editor@example.com", "password123"
@@ -127,6 +229,90 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(resolved.status_code, status.HTTP_200_OK)
         self.assertTrue(resolved.data["is_resolved"])
 
+    def test_document_list_supports_search_ordering_and_pagination(self):
+        Document.objects.create(title="Alpha plan", owner=self.user)
+        Document.objects.create(title="Beta plan", owner=self.user)
+
+        response = self.client.get(
+            "/api/documents/?search=plan&ordering=title"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(
+            [document["title"] for document in response.data["results"]],
+            ["Alpha plan", "Beta plan"],
+        )
+
+    def test_document_list_is_paginated(self):
+        Document.objects.bulk_create(
+            [
+                Document(title=f"Document {number:02}", owner=self.user)
+                for number in range(21)
+            ]
+        )
+
+        response = self.client.get("/api/documents/?ordering=title")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 21)
+        self.assertEqual(len(response.data["results"]), 20)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_invalid_workspace_filter_is_rejected(self):
+        response = self.client.get("/api/documents/?workspace=not-a-uuid")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_viewer_cannot_update_document(self):
+        viewer = get_user_model().objects.create_user(
+            "viewer",
+            "viewer@example.com",
+            "password123",
+        )
+        document = Document.objects.create(title="Read only", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=viewer,
+            role=MemberRole.VIEWER,
+        )
+        self.client.force_authenticate(viewer)
+
+        response = self.client.patch(
+            f"/api/documents/{document.id}/",
+            {"title": "Forbidden update"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_editor_cannot_manage_document_members(self):
+        editor = get_user_model().objects.create_user(
+            "restricted-editor",
+            "restricted-editor@example.com",
+            "password123",
+        )
+        candidate = get_user_model().objects.create_user(
+            "candidate",
+            "candidate@example.com",
+            "password123",
+        )
+        document = Document.objects.create(title="Owner controls members", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=editor,
+            role=MemberRole.EDITOR,
+        )
+        self.client.force_authenticate(editor)
+
+        response = self.client.post(
+            f"/api/documents/{document.id}/members/",
+            {"username": candidate.username, "role": MemberRole.VIEWER},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_document_update_service_creates_revision(self):
         document = Document.objects.create(
             title="Original",
@@ -146,3 +332,80 @@ class DocumentApiTests(APITestCase):
         self.assertEqual(revision.title, "Original")
         document.refresh_from_db()
         self.assertEqual(document.title, "Updated")
+
+    def test_successive_updates_create_unique_revision_versions(self):
+        document = Document.objects.create(
+            title="Version zero",
+            content={"type": "doc", "content": []},
+            owner=self.user,
+        )
+
+        update_document_with_revision(
+            document=document,
+            author=self.user,
+            new_title="Version one",
+            new_content={"version": 1},
+        )
+        update_document_with_revision(
+            document=document,
+            author=self.user,
+            new_title="Version two",
+            new_content={"version": 2},
+        )
+
+        self.assertEqual(
+            list(
+                DocumentRevision.objects.filter(document=document)
+                .order_by("version")
+                .values_list("version", flat=True)
+            ),
+            [1, 2],
+        )
+
+
+class DocumentRevisionConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            "concurrent-owner",
+            "concurrent-owner@example.com",
+            "password123",
+        )
+        self.document = Document.objects.create(
+            title="Original",
+            content={"version": 0},
+            owner=self.user,
+        )
+
+    def test_simultaneous_updates_receive_unique_revision_versions(self):
+        barrier = Barrier(2)
+
+        def update(number):
+            close_old_connections()
+            try:
+                document = Document.objects.get(pk=self.document.pk)
+                user = get_user_model().objects.get(pk=self.user.pk)
+                barrier.wait()
+                update_document_with_revision(
+                    document=document,
+                    author=user,
+                    new_title=f"Update {number}",
+                    new_content={"version": number},
+                )
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(update, number) for number in (1, 2)]
+            for future in futures:
+                future.result()
+
+        self.assertEqual(
+            list(
+                DocumentRevision.objects.filter(document=self.document)
+                .order_by("version")
+                .values_list("version", flat=True)
+            ),
+            [1, 2],
+        )

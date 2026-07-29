@@ -12,6 +12,9 @@ def update_document_with_revision(
     new_title,
     new_content,
 ):
+    document = (
+        document.__class__.objects.select_for_update().get(pk=document.pk)
+    )
     latest_version = (
         document.revisions.aggregate(maximum=Max("version"))["maximum"] or 0
     )

@@ -1,6 +1,16 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 
-from .models import EmailVerification
+from .models import EmailVerification, SocialAccount, User, WebhookEvent
+
+
+@admin.register(User)
+class ZealUserAdmin(UserAdmin):
+    pass
+
+
+admin.site.register(SocialAccount)
+admin.site.register(WebhookEvent)
 
 
 @admin.register(EmailVerification)

@@ -1,12 +1,15 @@
 # OS and editors
 .DS_Store
 .vscode/
+.local-backups/
 
 # JavaScript
 node_modules/
 .next/
 dist/
 coverage/
+.coverage
+htmlcov/
 *.tsbuildinfo
 .env
 .env.*
@@ -23,6 +26,9 @@ venv/
 backend/.venv/
 backend/db.sqlite3
 backend/.env
+backend/staticfiles/
+backend/media/
+backend/celerybeat-schedule*
 __pycache__/
 *.py[cod]
 backend/.venv-old/

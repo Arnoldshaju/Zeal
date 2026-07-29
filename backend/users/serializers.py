@@ -11,7 +11,7 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=4)
+    password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
@@ -47,7 +47,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email", "is_email_verified")
 
-    def get_is_email_verified(self, user):
+    def get_is_email_verified(self, user) -> bool:
         verification = getattr(user, "email_verification", None)
         return verification.is_verified if verification else True
 
@@ -73,7 +73,7 @@ class TokenConfirmationSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(TokenConfirmationSerializer):
-    new_password = serializers.CharField(write_only=True, min_length=4)
+    new_password = serializers.CharField(write_only=True, min_length=8)
 
     def validate_new_password(self, value):
         validate_password(value)

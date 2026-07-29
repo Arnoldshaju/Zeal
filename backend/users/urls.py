@@ -11,6 +11,7 @@ from .views import (
     PasswordResetRequestView,
     RegisterView,
 )
+from .webhooks import WebhookView
 
 
 urlpatterns = [
@@ -23,4 +24,5 @@ urlpatterns = [
     path("verify-email/confirm/", EmailVerificationConfirmView.as_view()),
     path("password-reset/request/", PasswordResetRequestView.as_view()),
     path("password-reset/confirm/", PasswordResetConfirmView.as_view()),
+    path("webhooks/", WebhookView.as_view(), name="webhook"),
 ]

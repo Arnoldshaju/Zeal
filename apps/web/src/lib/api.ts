@@ -37,6 +37,16 @@ export type WorkspaceRecord = {
   created_at: string;
   updated_at: string;
 };
+export type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+export function paginatedResults<T>(data: PaginatedResponse<T> | T[]): T[] {
+  return Array.isArray(data) ? data : data.results;
+}
 
 export function saveTokens(access: string, refresh: string) {
   localStorage.setItem("syncspace:access", access);

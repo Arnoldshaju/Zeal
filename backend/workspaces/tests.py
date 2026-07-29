@@ -1,10 +1,14 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from documents.models import Document
-from .models import WorkspaceMember, WorkspaceRole
+from .models import WorkspaceInvitation, WorkspaceMember, WorkspaceRole
 from .services import create_personal_workspace
+from .tasks import delete_expired_invitations
 
 
 class WorkspaceApiTests(APITestCase):
@@ -25,9 +29,15 @@ class WorkspaceApiTests(APITestCase):
         response = self.client.get("/api/workspaces/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["current_role"], WorkspaceRole.OWNER)
-        self.assertEqual(response.data[0]["slug"], f"personal-{self.owner.id}")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            response.data["results"][0]["current_role"],
+            WorkspaceRole.OWNER,
+        )
+        self.assertEqual(
+            response.data["results"][0]["slug"],
+            f"personal-{self.owner.id}",
+        )
 
     def test_owner_can_create_workspace_and_add_member(self):
         created = self.client.post(
@@ -76,5 +86,31 @@ class WorkspaceApiTests(APITestCase):
         response = self.client.get(f"/api/documents/?workspace={second_id}")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual([row["id"] for row in response.data], [str(shared.id)])
+        self.assertEqual(
+            [row["id"] for row in response.data["results"]],
+            [str(shared.id)],
+        )
 
+    def test_scheduled_cleanup_removes_only_expired_invitations(self):
+        workspace = create_personal_workspace(self.owner)
+        expired = WorkspaceInvitation.objects.create(
+            workspace=workspace,
+            invited_by=self.owner,
+            email="expired@example.com",
+            role=WorkspaceRole.MEMBER,
+            token_hash="expired-token",
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+        active = WorkspaceInvitation.objects.create(
+            workspace=workspace,
+            invited_by=self.owner,
+            email="active@example.com",
+            role=WorkspaceRole.MEMBER,
+            token_hash="active-token",
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+
+        delete_expired_invitations()
+
+        self.assertFalse(WorkspaceInvitation.objects.filter(pk=expired.pk).exists())
+        self.assertTrue(WorkspaceInvitation.objects.filter(pk=active.pk).exists())

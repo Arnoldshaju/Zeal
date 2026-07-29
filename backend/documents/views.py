@@ -1,19 +1,40 @@
+import hashlib
+import json
+
 from django.contrib.auth import get_user_model
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Q
-from rest_framework import permissions, status, viewsets
+from rest_framework import parsers, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Comment, Document, DocumentMember, MemberRole
+from .models import (
+    ApiIdempotencyRecord,
+    Comment,
+    Document,
+    DocumentAttachment,
+    DocumentMember,
+    MemberRole,
+)
 from .permissions import HasDocumentPermission
-from .serializers import CommentSerializer, DocumentMemberSerializer, DocumentSerializer
+from .serializers import (
+    CommentSerializer,
+    DocumentAttachmentSerializer,
+    DocumentMemberSerializer,
+    DocumentSerializer,
+)
 from workspaces.services import create_personal_workspace
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
+    queryset = Document.objects.all()
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated, HasDocumentPermission]
+    filterset_fields = ["workspace", "owner"]
+    search_fields = ["title"]
+    ordering_fields = ["created_at", "updated_at", "title"]
+    ordering = ["-updated_at"]
 
     def get_queryset(self):
         user = self.request.user
@@ -28,10 +49,48 @@ class DocumentViewSet(viewsets.ModelViewSet):
             .prefetch_related("members__user", "tags")
             .distinct()
         )
-        workspace_id = self.request.query_params.get("workspace")
-        if workspace_id:
-            queryset = queryset.filter(workspace_id=workspace_id)
         return queryset
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        key = request.headers.get("Idempotency-Key")
+        if not key:
+            return super().create(request, *args, **kwargs)
+        if len(key) > 255:
+            return Response(
+                {"idempotency_key": "Idempotency-Key must be at most 255 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request_hash = hashlib.sha256(
+            json.dumps(request.data, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        existing = ApiIdempotencyRecord.objects.select_for_update().filter(
+            user=request.user,
+            key=key,
+        ).first()
+        if existing:
+            if existing.request_hash != request_hash:
+                return Response(
+                    {"detail": "This Idempotency-Key was used with different data."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            response = Response(existing.response_body, status=existing.status_code)
+            response["Idempotency-Replayed"] = "true"
+            return response
+
+        response = super().create(request, *args, **kwargs)
+        response_body = json.loads(
+            json.dumps(response.data, cls=DjangoJSONEncoder)
+        )
+        ApiIdempotencyRecord.objects.create(
+            user=request.user,
+            key=key,
+            request_hash=request_hash,
+            status_code=response.status_code,
+            response_body=response_body,
+        )
+        return response
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -43,6 +102,50 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             user=self.request.user,
             role=MemberRole.OWNER,
+        )
+
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="attachments",
+        parser_classes=[parsers.MultiPartParser],
+    )
+    def attachments(self, request, pk=None):
+        document = self.get_object()
+        if request.method == "GET":
+            attachments = document.attachments.select_related("uploaded_by")
+            return Response(
+                DocumentAttachmentSerializer(
+                    attachments,
+                    many=True,
+                    context={"request": request},
+                ).data
+            )
+
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is None:
+            return Response(
+                {"file": "A file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return Response(
+                {"file": "Files cannot be larger than 10 MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        attachment = DocumentAttachment.objects.create(
+            document=document,
+            uploaded_by=request.user,
+            file=uploaded_file,
+            original_name=uploaded_file.name,
+            size=uploaded_file.size,
+        )
+        return Response(
+            DocumentAttachmentSerializer(
+                attachment,
+                context={"request": request},
+            ).data,
+            status=status.HTTP_201_CREATED,
         )
 
     @action(detail=True, methods=["get", "post"], url_path="comments")

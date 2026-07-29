@@ -1,23 +1,31 @@
+from datetime import timedelta
+from io import StringIO
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import override_settings
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APITestCase
-
-from io import StringIO
-from unittest.mock import patch
+from rest_framework_simplejwt.tokens import AccessToken
 
 from documents.models import Comment, Document
 from users.models import EmailVerification
+from users.models import SocialAccount, WebhookEvent
 from users.tokens import email_verification_token_generator
 from workspaces.services import create_workspace
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=True,
+)
 class AuthenticationTests(APITestCase):
     def test_register_login_and_current_user(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -81,7 +89,7 @@ class AuthenticationTests(APITestCase):
 
     def test_registration_succeeds_when_email_provider_rejects_delivery(self):
         with patch(
-            "users.services.send_mail",
+            "users.tasks.send_mail",
             side_effect=RuntimeError("Email provider unavailable"),
         ):
             with self.captureOnCommitCallbacks(execute=True):
@@ -167,6 +175,35 @@ class AuthenticationTests(APITestCase):
         response = self.client.get("/api/auth/me/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_invalid_login_is_rejected(self):
+        get_user_model().objects.create_user(
+            "invalid-login",
+            "invalid-login@example.com",
+            "CorrectPassword123!",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "invalid-login", "password": "WrongPassword123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_expired_access_token_is_rejected(self):
+        user = get_user_model().objects.create_user(
+            "expired-token",
+            "expired-token@example.com",
+            "password123",
+        )
+        token = AccessToken.for_user(user)
+        token.set_exp(lifetime=timedelta(seconds=-1))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.get("/api/auth/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_invalid_email_verification_token_is_rejected(self):
         user = get_user_model().objects.create_user(
             "verify-user", "verify@example.com", "password123"
@@ -181,6 +218,61 @@ class AuthenticationTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_reset_token_cannot_be_reused(self):
+        user = get_user_model().objects.create_user(
+            "single-use-reset",
+            "single-use-reset@example.com",
+            "OldPassword123!",
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        payload = {
+            "uid": uid,
+            "token": token,
+            "new_password": "NewPassword123!",
+        }
+
+        first = self.client.post(
+            "/api/auth/password-reset/confirm/",
+            payload,
+            format="json",
+        )
+        second = self.client.post(
+            "/api/auth/password-reset/confirm/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AuthenticationThrottleTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_anonymous_requests_are_rate_limited(self):
+        payload = {"username": "missing-user", "password": "WrongPassword123!"}
+
+        responses = [
+            self.client.post("/api/auth/login/", payload, format="json")
+            for _ in range(101)
+        ]
+
+        self.assertTrue(
+            all(
+                response.status_code == status.HTTP_401_UNAUTHORIZED
+                for response in responses[:100]
+            )
+        )
+        self.assertEqual(
+            responses[100].status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
 
 
 class ProjectStatsCommandTests(APITestCase):
@@ -209,17 +301,87 @@ class ProjectStatsCommandTests(APITestCase):
         self.assertIn("Number of documents: 1", rendered)
         self.assertIn("Number of unresolved comments: 1", rendered)
 
-    def test_password_minimum_length_is_four_characters(self):
+    def test_password_minimum_length_is_eight_characters(self):
         too_short = self.client.post(
             "/api/auth/register/",
-            {"username": "short", "email": "short@example.com", "password": "abc"},
+            {
+                "username": "short",
+                "email": "short@example.com",
+                "password": "Abcd12!",
+            },
             format="json",
         )
         self.assertEqual(too_short.status_code, status.HTTP_400_BAD_REQUEST)
 
         accepted = self.client.post(
             "/api/auth/register/",
-            {"username": "valid", "email": "valid@example.com", "password": "abcd"},
+            {
+                "username": "valid",
+                "email": "valid@example.com",
+                "password": "Abcde12!",
+            },
             format="json",
         )
         self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
+
+
+class UserPlatformTests(APITestCase):
+    def test_custom_user_and_social_account(self):
+        user = get_user_model().objects.create_user(
+            "social-user",
+            "social-user@example.com",
+            "password123",
+        )
+        account = SocialAccount.objects.create(
+            user=user,
+            provider="github",
+            provider_user_id="github-123",
+        )
+
+        self.assertEqual(get_user_model()._meta.label, "users.User")
+        self.assertEqual(account.user, user)
+
+    def test_seed_roles_command_is_repeatable(self):
+        call_command("seed_roles")
+        call_command("seed_roles")
+
+        from django.contrib.auth.models import Group
+
+        self.assertEqual(
+            Group.objects.filter(
+                name__in=["Zeal Owners", "Zeal Editors", "Zeal Viewers"]
+            ).count(),
+            3,
+        )
+
+    @override_settings(
+        WEBHOOK_SECRET="test-webhook-secret",
+        CELERY_TASK_ALWAYS_EAGER=True,
+    )
+    def test_signed_webhook_is_idempotent(self):
+        payload = {
+            "provider": "example",
+            "event_id": "event-1",
+            "payload": {"action": "updated"},
+        }
+        headers = {"HTTP_X_ZEAL_WEBHOOK_SECRET": "test-webhook-secret"}
+
+        with self.captureOnCommitCallbacks(execute=True):
+            first = self.client.post(
+                "/api/auth/webhooks/",
+                payload,
+                format="json",
+                **headers,
+            )
+        second = self.client.post(
+            "/api/auth/webhooks/",
+            payload,
+            format="json",
+            **headers,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(first.data["duplicate"])
+        self.assertTrue(second.data["duplicate"])
+        self.assertEqual(WebhookEvent.objects.count(), 1)
+        self.assertIsNotNone(WebhookEvent.objects.get().processed_at)

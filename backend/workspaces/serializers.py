@@ -46,7 +46,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
-    def get_current_role(self, workspace):
+    def get_current_role(self, workspace) -> str | None:
         request = self.context.get("request")
         if request is None or not request.user.is_authenticated:
             return None
@@ -62,7 +62,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         )
         return membership.role if membership else None
 
-    def get_document_count(self, workspace):
+    def get_document_count(self, workspace) -> int:
         annotated_count = getattr(workspace, "document_count", None)
         if annotated_count is not None:
             return annotated_count
