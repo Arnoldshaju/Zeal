@@ -7,6 +7,7 @@ import {
   apiFetch,
   clearTokens,
   DocumentRecord,
+  getRefreshToken,
   readError,
   User,
   WorkspaceRecord,
@@ -207,7 +208,14 @@ export default function DashboardPage() {
     }
   }
 
-  function logout() {
+  async function logout() {
+    const refresh = getRefreshToken();
+    if (refresh) {
+      await apiFetch("/auth/logout/", {
+        method: "POST",
+        body: JSON.stringify({ refresh }),
+      }).catch(() => undefined);
+    }
     clearTokens();
     localStorage.removeItem(SELECTED_WORKSPACE_KEY);
     router.push("/login");
