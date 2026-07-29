@@ -1,9 +1,61 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import Document, DocumentMember, DocumentRevision, MemberRole, Tag
 from .services import update_document_with_revision
+
+
+class DocumentManagerTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(
+            "manager-owner",
+            "manager-owner@example.com",
+            "password123",
+        )
+        self.other_user = user_model.objects.create_user(
+            "manager-other",
+            "manager-other@example.com",
+            "password123",
+        )
+
+    def test_owned_by_returns_only_documents_belonging_to_user(self):
+        owned_document = Document.objects.create(
+            title="Owned",
+            owner=self.owner,
+        )
+        Document.objects.create(
+            title="Someone else's",
+            owner=self.other_user,
+        )
+
+        documents = Document.objects.owned_by(self.owner)
+
+        self.assertQuerySetEqual(documents, [owned_document])
+
+    def test_recently_updated_orders_newest_document_first(self):
+        older_document = Document.objects.create(
+            title="Older",
+            owner=self.owner,
+        )
+        newer_document = Document.objects.create(
+            title="Newer",
+            owner=self.owner,
+        )
+        now = timezone.now()
+        Document.objects.filter(pk=older_document.pk).update(
+            updated_at=now - timedelta(days=1)
+        )
+        Document.objects.filter(pk=newer_document.pk).update(updated_at=now)
+
+        documents = list(Document.objects.recently_updated())
+
+        self.assertEqual(documents, [newer_document, older_document])
 
 
 class DocumentApiTests(APITestCase):

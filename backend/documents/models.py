@@ -23,6 +23,25 @@ class Tag(models.Model):
         return self.name
 
 
+class DocumentQuerySet(models.QuerySet):
+    def owned_by(self, user):
+        return self.filter(owner=user)
+
+    def recently_updated(self):
+        return self.order_by("-updated_at")
+
+
+class DocumentManager(models.Manager):
+    def get_queryset(self):
+        return DocumentQuerySet(self.model, using=self._db)
+
+    def owned_by(self, user):
+        return self.get_queryset().owned_by(user)
+
+    def recently_updated(self):
+        return self.get_queryset().recently_updated()
+
+
 class Document(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255, default="Untitled")
@@ -46,6 +65,8 @@ class Document(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = DocumentManager()
 
     class Meta:
         ordering = ["-updated_at"]
