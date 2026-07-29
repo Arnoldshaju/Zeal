@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
-from .models import Comment, Document, DocumentMember, DocumentRevision, Tag
+from .models import (
+    Comment,
+    Document,
+    DocumentAttachment,
+    DocumentMember,
+    DocumentRevision,
+    Tag,
+)
 from workspaces.models import Workspace
 
 
@@ -35,6 +42,26 @@ class DocumentRevisionSerializer(serializers.ModelSerializer):
             "title",
             "content",
             "created_at",
+        )
+        read_only_fields = fields
+
+
+class DocumentAttachmentSerializer(serializers.ModelSerializer):
+    uploaded_by_username = serializers.CharField(
+        source="uploaded_by.username",
+        read_only=True,
+    )
+
+    class Meta:
+        model = DocumentAttachment
+        fields = (
+            "id",
+            "file",
+            "original_name",
+            "size",
+            "uploaded_by",
+            "uploaded_by_username",
+            "uploaded_at",
         )
         read_only_fields = fields
 

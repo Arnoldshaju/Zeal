@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Comment, Document, DocumentMember, DocumentRevision, Tag
+from .models import (
+    ApiIdempotencyRecord,
+    Comment,
+    Document,
+    DocumentAttachment,
+    DocumentMember,
+    DocumentRevision,
+    Tag,
+)
 
 
 @admin.register(Document)
@@ -32,3 +40,7 @@ class CommentAdmin(admin.ModelAdmin):
     list_display = ("document", "author", "is_resolved", "created_at")
     list_filter = ("is_resolved", "created_at")
     search_fields = ("document__title", "author__username", "body")
+
+
+admin.site.register(DocumentAttachment)
+admin.site.register(ApiIdempotencyRecord)

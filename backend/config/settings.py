@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     "collaboration",
 ]
 
+AUTH_USER_MODEL = "users.User"
+
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -52,7 +54,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -93,6 +95,9 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 PASSWORD_RESET_TIMEOUT = 60 * 60
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -128,6 +133,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "config.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.AnonRateThrottle",
@@ -176,3 +182,10 @@ CELERY_TASK_ALWAYS_EAGER = (
     os.getenv("CELERY_TASK_ALWAYS_EAGER", "False").lower()
     in {"1", "true", "yes"}
 )
+CELERY_BEAT_SCHEDULE = {
+    "delete-expired-workspace-invitations": {
+        "task": "workspaces.tasks.delete_expired_invitations",
+        "schedule": timedelta(hours=24),
+    },
+}
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "development-webhook-secret")

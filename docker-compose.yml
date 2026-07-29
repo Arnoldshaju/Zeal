@@ -83,6 +83,30 @@ services:
         condition: service_healthy
     command: celery -A config worker --loglevel=info
 
+  celery-beat:
+    build:
+      context: ./backend
+    container_name: zeal-celery-beat
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: zeal-development-secret-key-change-me
+      DJANGO_DEBUG: "True"
+      POSTGRES_DB: zeal
+      POSTGRES_USER: zeal
+      POSTGRES_PASSWORD: zeal
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/3
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config beat --loglevel=info
+
   frontend:
     build:
       context: ./apps/web

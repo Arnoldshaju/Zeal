@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections
 from django.test import TestCase
 from django.test import TransactionTestCase
@@ -10,30 +11,30 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from users.factories import UserFactory
+
+from .factories import DocumentFactory
 from .models import Document, DocumentMember, DocumentRevision, MemberRole, Tag
 from .services import update_document_with_revision
 
 
 class DocumentManagerTests(TestCase):
     def setUp(self):
-        user_model = get_user_model()
-        self.owner = user_model.objects.create_user(
-            "manager-owner",
-            "manager-owner@example.com",
-            "password123",
+        self.owner = UserFactory(
+            username="manager-owner",
+            email="manager-owner@example.com",
         )
-        self.other_user = user_model.objects.create_user(
-            "manager-other",
-            "manager-other@example.com",
-            "password123",
+        self.other_user = UserFactory(
+            username="manager-other",
+            email="manager-other@example.com",
         )
 
     def test_owned_by_returns_only_documents_belonging_to_user(self):
-        owned_document = Document.objects.create(
+        owned_document = DocumentFactory(
             title="Owned",
             owner=self.owner,
         )
-        Document.objects.create(
+        DocumentFactory(
             title="Someone else's",
             owner=self.other_user,
         )
@@ -150,6 +151,50 @@ class DocumentApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data["tags"]), 2)
+
+    def test_document_attachment_can_be_uploaded_and_listed(self):
+        document = Document.objects.create(title="With file", owner=self.user)
+        DocumentMember.objects.create(
+            document=document,
+            user=self.user,
+            role=MemberRole.OWNER,
+        )
+
+        uploaded = self.client.post(
+            f"/api/documents/{document.id}/attachments/",
+            {"file": SimpleUploadedFile("notes.txt", b"Zeal attachment")},
+            format="multipart",
+        )
+        listed = self.client.get(
+            f"/api/documents/{document.id}/attachments/"
+        )
+
+        self.assertEqual(uploaded.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(uploaded.data["original_name"], "notes.txt")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(listed.data), 1)
+
+    def test_document_creation_is_idempotent(self):
+        payload = {"title": "Created once"}
+        headers = {"HTTP_IDEMPOTENCY_KEY": "document-create-1"}
+
+        first = self.client.post(
+            "/api/documents/",
+            payload,
+            format="json",
+            **headers,
+        )
+        replay = self.client.post(
+            "/api/documents/",
+            payload,
+            format="json",
+            **headers,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(replay.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(replay["Idempotency-Replayed"], "true")
+        self.assertEqual(Document.objects.filter(title="Created once").count(), 1)
 
     def test_editor_can_create_comment_and_owner_can_resolve_it(self):
         editor = get_user_model().objects.create_user(

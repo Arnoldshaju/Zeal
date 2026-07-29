@@ -2,7 +2,7 @@ from django.db import migrations
 
 
 def create_personal_workspaces(apps, schema_editor):
-    User = apps.get_model("auth", "User")
+    User = apps.get_model("users", "User")
     Workspace = apps.get_model("workspaces", "Workspace")
     WorkspaceMember = apps.get_model("workspaces", "WorkspaceMember")
     Document = apps.get_model("documents", "Document")

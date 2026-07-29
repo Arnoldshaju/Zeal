@@ -85,6 +85,52 @@ class Document(models.Model):
         return self.title
 
 
+def document_attachment_path(instance, filename):
+    return f"documents/{instance.document_id}/{uuid.uuid4()}-{filename}"
+
+
+class DocumentAttachment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="document_attachments",
+    )
+    file = models.FileField(upload_to=document_attachment_path)
+    original_name = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+
+class ApiIdempotencyRecord(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="idempotency_records",
+    )
+    key = models.CharField(max_length=255)
+    request_hash = models.CharField(max_length=64)
+    status_code = models.PositiveSmallIntegerField()
+    response_body = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "key"],
+                name="unique_user_idempotency_key",
+            )
+        ]
+
+
 class DocumentRevision(models.Model):
     id = models.BigAutoField(primary_key=True)
     document = models.ForeignKey(

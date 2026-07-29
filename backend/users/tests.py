@@ -16,6 +16,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from documents.models import Comment, Document
 from users.models import EmailVerification
+from users.models import SocialAccount, WebhookEvent
 from users.tokens import email_verification_token_generator
 from workspaces.services import create_workspace
 
@@ -322,3 +323,65 @@ class ProjectStatsCommandTests(APITestCase):
             format="json",
         )
         self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
+
+
+class UserPlatformTests(APITestCase):
+    def test_custom_user_and_social_account(self):
+        user = get_user_model().objects.create_user(
+            "social-user",
+            "social-user@example.com",
+            "password123",
+        )
+        account = SocialAccount.objects.create(
+            user=user,
+            provider="github",
+            provider_user_id="github-123",
+        )
+
+        self.assertEqual(get_user_model()._meta.label, "users.User")
+        self.assertEqual(account.user, user)
+
+    def test_seed_roles_command_is_repeatable(self):
+        call_command("seed_roles")
+        call_command("seed_roles")
+
+        from django.contrib.auth.models import Group
+
+        self.assertEqual(
+            Group.objects.filter(
+                name__in=["Zeal Owners", "Zeal Editors", "Zeal Viewers"]
+            ).count(),
+            3,
+        )
+
+    @override_settings(
+        WEBHOOK_SECRET="test-webhook-secret",
+        CELERY_TASK_ALWAYS_EAGER=True,
+    )
+    def test_signed_webhook_is_idempotent(self):
+        payload = {
+            "provider": "example",
+            "event_id": "event-1",
+            "payload": {"action": "updated"},
+        }
+        headers = {"HTTP_X_ZEAL_WEBHOOK_SECRET": "test-webhook-secret"}
+
+        with self.captureOnCommitCallbacks(execute=True):
+            first = self.client.post(
+                "/api/auth/webhooks/",
+                payload,
+                format="json",
+                **headers,
+            )
+        second = self.client.post(
+            "/api/auth/webhooks/",
+            payload,
+            format="json",
+            **headers,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(first.data["duplicate"])
+        self.assertTrue(second.data["duplicate"])
+        self.assertEqual(WebhookEvent.objects.count(), 1)
+        self.assertIsNotNone(WebhookEvent.objects.get().processed_at)
