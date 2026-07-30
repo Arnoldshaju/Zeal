@@ -61,6 +61,14 @@ export type TeamRecord = {
   created_at: string;
   updated_at: string;
 };
+export type ProjectRole = "MANAGER" | "CONTRIBUTOR" | "VIEWER";
+export type ProjectMembership = {
+  id: string;
+  user: number;
+  username: string;
+  role: ProjectRole;
+  joined_at: string;
+};
 export type ProjectRecord = {
   id: string;
   workspace: string;
@@ -71,6 +79,7 @@ export type ProjectRecord = {
   created_by: number;
   start_date: string | null;
   due_date: string | null;
+  memberships: ProjectMembership[];
   created_at: string;
   updated_at: string;
 };
@@ -89,6 +98,21 @@ export type TaskRecord = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+};
+export type TaskCommentRecord = {
+  id: string;
+  author: number;
+  author_username: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+export type TaskAttachmentRecord = {
+  id: string;
+  original_name: string;
+  size: number;
+  url: string | null;
+  uploaded_at: string;
 };
 export type NotificationRecord = {
   id: string;
