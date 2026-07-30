@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     "channels",
     "users",
     "workspaces",
+    "teams",
+    "projects",
     "documents",
     "collaboration",
 ]
@@ -146,8 +148,20 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Zeal API",
-    "DESCRIPTION": "API for Zeal workspaces, documents, and collaboration.",
+    "DESCRIPTION": (
+        "API for Zeal workspaces, teams, projects, tasks, documents, "
+        "notifications, and collaboration.\n\n"
+        "**Swagger authorization:** paste only the access-token value. "
+        "Do not include `Bearer`; Swagger adds it automatically."
+    ),
     "VERSION": "1.0.0",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "config.schema.clarify_jwt_authorization",
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": False,
+    },
 }
 
 SIMPLE_JWT = {
@@ -185,6 +199,10 @@ CELERY_TASK_ALWAYS_EAGER = (
 CELERY_BEAT_SCHEDULE = {
     "delete-expired-workspace-invitations": {
         "task": "workspaces.tasks.delete_expired_invitations",
+        "schedule": timedelta(hours=24),
+    },
+    "send-project-task-reminders": {
+        "task": "projects.tasks.send_due_task_reminders",
         "schedule": timedelta(hours=24),
     },
 }
