@@ -150,9 +150,18 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Zeal API",
     "DESCRIPTION": (
         "API for Zeal workspaces, teams, projects, tasks, documents, "
-        "notifications, and collaboration."
+        "notifications, and collaboration.\n\n"
+        "**Swagger authorization:** paste only the access-token value. "
+        "Do not include `Bearer`; Swagger adds it automatically."
     ),
     "VERSION": "1.0.0",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "config.schema.clarify_jwt_authorization",
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": False,
+    },
 }
 
 SIMPLE_JWT = {

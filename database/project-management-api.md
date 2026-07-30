@@ -24,6 +24,9 @@ All endpoints require a JWT access token:
 Authorization: Bearer ACCESS_TOKEN
 ```
 
+In Swagger's **Authorize** dialog, paste only `ACCESS_TOKEN`. Do not type
+`Bearer`; Swagger adds that prefix automatically.
+
 Interactive OpenAPI documentation is available at
 `http://localhost:8000/api/docs/`.
 
