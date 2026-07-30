@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     "channels",
     "users",
     "workspaces",
+    "teams",
+    "projects",
     "documents",
     "collaboration",
 ]
@@ -146,7 +148,10 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Zeal API",
-    "DESCRIPTION": "API for Zeal workspaces, documents, and collaboration.",
+    "DESCRIPTION": (
+        "API for Zeal workspaces, teams, projects, tasks, documents, "
+        "notifications, and collaboration."
+    ),
     "VERSION": "1.0.0",
 }
 
@@ -185,6 +190,10 @@ CELERY_TASK_ALWAYS_EAGER = (
 CELERY_BEAT_SCHEDULE = {
     "delete-expired-workspace-invitations": {
         "task": "workspaces.tasks.delete_expired_invitations",
+        "schedule": timedelta(hours=24),
+    },
+    "send-project-task-reminders": {
+        "task": "projects.tasks.send_due_task_reminders",
         "schedule": timedelta(hours=24),
     },
 }

@@ -8,7 +8,10 @@
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![Celery](https://img.shields.io/badge/Celery-5-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 
-Zeal lets users create personal and team workspaces, manage permissions, edit rich-text documents, upload attachments, and collaborate through live WebSocket updates. The complete development stack runs through Docker Compose and works with OrbStack.
+Zeal lets users create personal and team workspaces, manage projects and task
+workflows, edit rich-text documents, upload attachments, and collaborate
+through live WebSocket updates. The complete development stack runs through
+Docker Compose and works with OrbStack.
 
 > [!NOTE]
 > Zeal is under active development. APIs and user-facing workflows may change.
@@ -19,6 +22,9 @@ Zeal lets users create personal and team workspaces, manage permissions, edit ri
 - JWT authentication, rotation, refresh, logout, and blacklisting
 - Email verification and password reset
 - Personal and team workspaces
+- Teams, projects, project memberships, and task workflows
+- Task comments, attachments, activity history, and notifications
+- Redis-cached project statistics and scheduled due-date reminders
 - Owner, administrator, member, editor, and viewer permissions
 - Rich-text document editing with Tiptap
 - Tags, comments, attachments, and document revisions
@@ -30,7 +36,7 @@ Zeal lets users create personal and team workspaces, manage permissions, edit ri
 - Celery Beat scheduled invitation cleanup
 - Signed, idempotent webhook ingestion
 - OpenAPI schema and interactive Swagger documentation
-- 40 backend tests and approximately 82% measured coverage
+- 60 backend tests covering documents, authentication, workspaces, teams, and projects
 
 ## Architecture
 
