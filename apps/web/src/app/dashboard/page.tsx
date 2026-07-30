@@ -241,6 +241,18 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/dashboard/projects"
+              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white"
+            >
+              Projects
+            </Link>
+            <Link
+              href="/notifications"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium"
+            >
+              Notifications
+            </Link>
             <button
               type="button"
               onClick={logout}
