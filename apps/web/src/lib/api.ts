@@ -37,6 +37,94 @@ export type WorkspaceRecord = {
   created_at: string;
   updated_at: string;
 };
+export type ProjectStatus =
+  | "PLANNING"
+  | "ACTIVE"
+  | "COMPLETED"
+  | "ARCHIVED";
+export type TaskStatus =
+  | "TODO"
+  | "IN_PROGRESS"
+  | "REVIEW"
+  | "DONE";
+export type TaskPriority =
+  | "LOW"
+  | "MEDIUM"
+  | "HIGH"
+  | "URGENT";
+export type TeamRecord = {
+  id: string;
+  workspace: string;
+  name: string;
+  description: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+};
+export type ProjectRole = "MANAGER" | "CONTRIBUTOR" | "VIEWER";
+export type ProjectMembership = {
+  id: string;
+  user: number;
+  username: string;
+  role: ProjectRole;
+  joined_at: string;
+};
+export type ProjectRecord = {
+  id: string;
+  workspace: string;
+  team: string | null;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  created_by: number;
+  start_date: string | null;
+  due_date: string | null;
+  memberships: ProjectMembership[];
+  created_at: string;
+  updated_at: string;
+};
+export type TaskRecord = {
+  id: string;
+  project: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  created_by: number;
+  assignee: number | null;
+  assignee_username: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type TaskCommentRecord = {
+  id: string;
+  author: number;
+  author_username: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+export type TaskAttachmentRecord = {
+  id: string;
+  original_name: string;
+  size: number;
+  url: string | null;
+  uploaded_at: string;
+};
+export type NotificationRecord = {
+  id: string;
+  actor: number | null;
+  actor_username: string | null;
+  task: string | null;
+  kind: string;
+  message: string;
+  target_url: string;
+  read_at: string | null;
+  created_at: string;
+};
 export type PaginatedResponse<T> = {
   count: number;
   next: string | null;
