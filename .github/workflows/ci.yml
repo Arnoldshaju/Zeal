@@ -1,0 +1,98 @@
+name: Zeal CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend tests and Django checks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: zeal
+          POSTGRES_USER: zeal
+          POSTGRES_PASSWORD: zeal
+        options: >-
+          --health-cmd "pg_isready -U zeal -d zeal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+        ports:
+          - 6379:6379
+
+    env:
+      DJANGO_SECRET_KEY: ci-not-a-production-secret
+      DJANGO_DEBUG: "False"
+      POSTGRES_DB: zeal
+      POSTGRES_USER: zeal
+      POSTGRES_PASSWORD: zeal
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://127.0.0.1:6379/0
+      CACHE_URL: redis://127.0.0.1:6379/1
+      CELERY_BROKER_URL: redis://127.0.0.1:6379/2
+      CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/3
+
+    steps:
+      - name: Download repository code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+        working-directory: backend
+
+      - name: Check Django configuration
+        run: python manage.py check
+        working-directory: backend
+
+      - name: Run backend tests
+        run: python manage.py test
+        working-directory: backend
+
+  frontend:
+    name: Frontend lint and production build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: apps/web
