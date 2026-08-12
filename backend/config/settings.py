@@ -10,12 +10,14 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-development-only-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "testserver",
-    "backend",
-]
+def env_list(name, default):
+    return [value.strip() for value in os.getenv(name, default).split(",") if value.strip()]
+
+
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    "localhost,127.0.0.1,testserver,backend",
+)
 
 INSTALLED_APPS = [
     "daphne",
@@ -115,9 +117,14 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {"1", "true", "yes"}
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
     "http://localhost:3000",
-]
+)
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:3000",
+)
 CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
