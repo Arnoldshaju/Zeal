@@ -100,7 +100,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-7xl px-5 pb-20 pt-20 text-center sm:px-8 sm:pt-28 lg:px-12 lg:pt-32">
           <p className="mx-auto mb-6 w-fit rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-sm font-medium text-indigo-300">
-            A better space for collaborative writing
+            A better space for collaborative writing and editing
           </p>
 
           <h1 className="mx-auto max-w-5xl text-5xl font-bold tracking-[-0.04em] text-white sm:text-6xl lg:text-7xl">
