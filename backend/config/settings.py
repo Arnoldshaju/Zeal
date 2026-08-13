@@ -14,11 +14,6 @@ def env_list(name, default):
     return [value.strip() for value in os.getenv(name, default).split(",") if value.strip()]
 
 
-ALLOWED_HOSTS = env_list(
-    "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1,testserver,backend",
-)
-
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
