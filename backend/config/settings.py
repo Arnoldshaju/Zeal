@@ -19,6 +19,12 @@ ALLOWED_HOSTS = env_list(
     "localhost,127.0.0.1,testserver,backend",
 )
 
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    os.environ.get("RENDER_EXTERNAL_HOSTNAME", ""),
+]
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
