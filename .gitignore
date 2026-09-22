@@ -16,10 +16,13 @@ htmlcov/
 .env.*
 !.env.example
 
-# Preserved Django implementation
+# Preserved Django implementation & services
 legacy/**/.venv/
 legacy/**/db.sqlite3
 legacy/**/__pycache__/
+services/**/.venv/
+services/**/db.sqlite3
+services/**/__pycache__/
 *.pyc
 
 # Python/Django backend

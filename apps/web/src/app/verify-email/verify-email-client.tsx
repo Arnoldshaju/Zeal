@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { API_URL, readError } from "@/lib/api";
+import { Mail, CheckCircle2, ArrowLeft, ShieldCheck } from "lucide-react";
+import { AUTH_API_URL, readError } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function VerifyEmailClient({
   initialEmail,
@@ -14,11 +18,13 @@ export function VerifyEmailClient({
   token: string;
 }) {
   const [email, setEmail] = useState(initialEmail);
+
   const [message, setMessage] = useState(
     uid && token
       ? "Confirm your email address to activate sign-in."
-      : "Check your email for a verification link. In local development, the link appears in the backend logs.",
+      : "Check your email for a verification link. In local development, the link appears in the backend logs."
   );
+
   const [error, setError] = useState("");
   const [debugUrl, setDebugUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,14 +32,23 @@ export function VerifyEmailClient({
   async function confirmVerification() {
     setBusy(true);
     setError("");
+
     try {
-      const response = await fetch(`${API_URL}/auth/verify-email/confirm/`, {
+      const response = await fetch(`${AUTH_API_URL}/auth/verify-email/confirm/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uid, token }),
       });
-      if (!response.ok) throw new Error(await readError(response));
-      const data = (await response.json()) as { detail: string; debug_url?: string };
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const data = (await response.json()) as {
+        detail: string;
+        debug_url?: string;
+      };
+
       setMessage(data.detail);
       setDebugUrl(data.debug_url ?? "");
     } catch (caught) {
@@ -47,72 +62,100 @@ export function VerifyEmailClient({
     event.preventDefault();
     setBusy(true);
     setError("");
+
     try {
-      const response = await fetch(`${API_URL}/auth/verify-email/request/`, {
+      const response = await fetch(`${AUTH_API_URL}/auth/verify-email/request/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (!response.ok) throw new Error(await readError(response));
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
       const data = (await response.json()) as { detail: string };
       setMessage(data.detail);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not send verification email.");
+      setError(
+        caught instanceof Error ? caught.message : "Could not send verification email."
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-      <div className="w-full max-w-md space-y-5 rounded-2xl bg-white p-8 shadow-sm">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Zeal</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-950">Verify email</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{message}</p>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 relative">
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Verify Email</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal mt-0.5">
+              {message}
+            </p>
+          </div>
         </div>
+
         {uid && token ? (
-          <button
+          <Button
             type="button"
-            disabled={busy}
+            isLoading={busy}
             onClick={confirmVerification}
-            className="w-full rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white disabled:opacity-50"
+            className="w-full"
           >
-            {busy ? "Verifying…" : "Verify email"}
-          </button>
+            Confirm Email Verification
+          </Button>
         ) : (
           <form onSubmit={resend} className="space-y-4">
-            <label className="block text-sm font-medium">
-              Email
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <button
-              disabled={busy}
-              className="w-full rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white disabled:opacity-50"
-            >
-              {busy ? "Sending…" : "Resend verification email"}
-            </button>
+            <Input
+              type="email"
+              label="Email Address"
+              placeholder="alex@example.com"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              icon={<Mail className="w-4 h-4" />}
+            />
+
+            <Button type="submit" isLoading={busy} className="w-full">
+              Resend Verification Email
+            </Button>
           </form>
         )}
-        {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+        {error && (
+          <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium">
+            {error}
+          </div>
+        )}
+
         {debugUrl && (
           <a
             href={debugUrl}
-            className="block rounded-lg border border-blue-200 bg-blue-50 p-3 text-center text-sm font-semibold text-blue-700 underline"
+            className="block p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/50 text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
           >
-            Open local verification link
+            Click here for local verification link &rarr;
           </a>
         )}
-        <p className="text-center text-sm">
-          <Link href="/login" className="font-semibold underline">Return to sign in</Link>
-        </p>
+
+        <div className="pt-2 text-center">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to sign in</span>
+          </Link>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

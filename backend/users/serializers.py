@@ -19,10 +19,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
     def validate_email(self, value):
-        normalized_email = value.strip().lower()
-        if User.objects.filter(email__iexact=normalized_email).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
-        return normalized_email
+        return value.strip().lower()
 
     @transaction.atomic
     def create(self, validated_data):

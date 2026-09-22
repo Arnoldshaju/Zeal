@@ -1,88 +1,145 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+// ======================================================
+// API URLs
+// ======================================================
+
+export const AUTH_API_URL =
+  process.env.NEXT_PUBLIC_AUTH_API_URL ??
+  "http://127.0.0.1:8000/api";
+
+export const WORKSPACE_API_URL =
+  process.env.NEXT_PUBLIC_WORKSPACE_API_URL ??
+  "http://127.0.0.1:8000/api";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
-function requestSignal(signal?: AbortSignal | null) {
-  return signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
+// ======================================================
+// REQUEST SIGNAL
+// ======================================================
+
+function requestSignal(
+  signal?: AbortSignal | null
+): AbortSignal {
+  if (signal) {
+    return signal;
+  }
+
+  const controller = new AbortController();
+
+  setTimeout(() => {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  return controller.signal;
 }
 
-export type User = { id: number; username: string; email: string };
-export type MemberRole = "OWNER" | "EDITOR" | "VIEWER";
+
+// ======================================================
+// TYPES
+// ======================================================
+
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+};
+
+
+// ======================================================
+// DOCUMENT TYPES
+// ======================================================
+
+export type MemberRole =
+  | "OWNER"
+  | "EDITOR"
+  | "VIEWER";
+
 export type DocumentMember = {
-  id: string; user: number; username: string; email: string; role: MemberRole; created_at: string;
+  id: string;
+  user: number;
+  username: string;
+  email: string;
+  role: MemberRole;
 };
+
 export type DocumentRecord = {
-  id: string; title: string; content: Record<string, unknown>; owner: number;
-  owner_username: string; members: DocumentMember[]; workspace: string | null;
-  created_at: string; updated_at: string;
+  id: string;
+  title: string;
+  content: Record<string, unknown>;
+  owner: number;
+  owner_username: string;
+  members: DocumentMember[];
+  workspace: string;
+  created_at: string;
+  updated_at: string;
 };
-export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
+
+
+// ======================================================
+// WORKSPACE TYPES
+// ======================================================
+
+export type WorkspaceRole =
+  | "OWNER"
+  | "ADMIN"
+  | "MEMBER";
+
 export type WorkspaceMember = {
   id: string;
   user: number;
   username: string;
   email: string;
   role: WorkspaceRole;
-  joined_at: string;
 };
-export type WorkspaceRecord = {
+
+export type Workspace = {
   id: string;
   name: string;
-  slug: string;
   owner: number;
-  owner_username: string;
-  current_role: WorkspaceRole;
-  document_count: number;
-  members: WorkspaceMember[];
-  created_at: string;
-  updated_at: string;
+  owner_username?: string;
+  current_role?: WorkspaceRole;
+  document_count?: number;
+  members?: WorkspaceMember[];
+  created_at?: string;
+  updated_at?: string;
 };
-export type ProjectStatus =
-  | "PLANNING"
-  | "ACTIVE"
-  | "COMPLETED"
-  | "ARCHIVED";
-export type TaskStatus =
-  | "TODO"
-  | "IN_PROGRESS"
-  | "REVIEW"
-  | "DONE";
-export type TaskPriority =
-  | "LOW"
-  | "MEDIUM"
-  | "HIGH"
-  | "URGENT";
-export type TeamRecord = {
-  id: string;
-  workspace: string;
-  name: string;
-  description: string;
-  created_by: number;
-  created_at: string;
-  updated_at: string;
-};
-export type ProjectRole = "MANAGER" | "CONTRIBUTOR" | "VIEWER";
+
+
+// ======================================================
+// PROJECT & TASK TYPES
+// ======================================================
+
+export type ProjectStatus = "PLANNING" | "IN_PROGRESS" | "COMPLETED" | "PAUSED";
+
 export type ProjectMembership = {
   id: string;
   user: number;
   username: string;
-  role: ProjectRole;
-  joined_at: string;
+  role: string;
 };
+
 export type ProjectRecord = {
   id: string;
   workspace: string;
-  team: string | null;
+  team?: string | null;
   name: string;
   description: string;
   status: ProjectStatus;
-  created_by: number;
-  start_date: string | null;
-  due_date: string | null;
+  due_date?: string | null;
   memberships: ProjectMembership[];
   created_at: string;
   updated_at: string;
 };
+
+export type TeamRecord = {
+  id: string;
+  workspace: string;
+  name: string;
+};
+
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
 export type TaskRecord = {
   id: string;
   project: string;
@@ -90,41 +147,53 @@ export type TaskRecord = {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  created_by: number;
-  assignee: number | null;
-  assignee_username: string | null;
-  start_date: string | null;
-  due_date: string | null;
-  completed_at: string | null;
+  assignee?: number | null;
+  assignee_username?: string;
+  due_date?: string | null;
   created_at: string;
   updated_at: string;
 };
+
 export type TaskCommentRecord = {
   id: string;
+  task: string;
   author: number;
   author_username: string;
   body: string;
   created_at: string;
-  updated_at: string;
 };
+
 export type TaskAttachmentRecord = {
   id: string;
+  task: string;
   original_name: string;
+  url: string;
   size: number;
-  url: string | null;
-  uploaded_at: string;
-};
-export type NotificationRecord = {
-  id: string;
-  actor: number | null;
-  actor_username: string | null;
-  task: string | null;
-  kind: string;
-  message: string;
-  target_url: string;
-  read_at: string | null;
   created_at: string;
 };
+
+export type NotificationRecord = {
+  id: string;
+  recipient: number;
+  actor_username?: string;
+  message: string;
+  target_url: string;
+  read_at?: string | null;
+  created_at: string;
+};
+
+
+// ------------------------------------------------------
+// BACKWARD COMPATIBILITY
+// ------------------------------------------------------
+
+export type WorkspaceRecord = Workspace;
+
+
+// ======================================================
+// PAGINATION TYPES
+// ======================================================
+
 export type PaginatedResponse<T> = {
   count: number;
   next: string | null;
@@ -132,49 +201,374 @@ export type PaginatedResponse<T> = {
   results: T[];
 };
 
-export function paginatedResults<T>(data: PaginatedResponse<T> | T[]): T[] {
-  return Array.isArray(data) ? data : data.results;
+
+// ======================================================
+// TOKEN STORAGE
+// ======================================================
+
+const ACCESS_TOKEN_KEY = "zeal_access_token";
+const REFRESH_TOKEN_KEY = "zeal_refresh_token";
+
+
+export function saveTokens(
+  access: string,
+  refresh: string
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem(
+    ACCESS_TOKEN_KEY,
+    access
+  );
+
+  localStorage.setItem(
+    REFRESH_TOKEN_KEY,
+    refresh
+  );
 }
 
-export function saveTokens(access: string, refresh: string) {
-  localStorage.setItem("syncspace:access", access);
-  localStorage.setItem("syncspace:refresh", refresh);
+
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(
+    ACCESS_TOKEN_KEY
+  );
 }
-export function getAccessToken() { return localStorage.getItem("syncspace:access"); }
-export function getRefreshToken() { return localStorage.getItem("syncspace:refresh"); }
-export function clearTokens() {
-  localStorage.removeItem("syncspace:access");
-  localStorage.removeItem("syncspace:refresh");
+
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(
+    REFRESH_TOKEN_KEY
+  );
 }
-async function refreshAccessToken() {
-  const refresh = localStorage.getItem("syncspace:refresh");
-  if (!refresh) return null;
-  const response = await fetch(`${API_URL}/auth/refresh/`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh }),
-    signal: requestSignal(),
-  });
-  if (!response.ok) { clearTokens(); return null; }
-  const data = (await response.json()) as { access: string; refresh?: string };
-  localStorage.setItem("syncspace:access", data.access);
-  if (data.refresh) localStorage.setItem("syncspace:refresh", data.refresh);
-  return data.access;
+
+
+export function clearTokens(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem(
+    ACCESS_TOKEN_KEY
+  );
+
+  localStorage.removeItem(
+    REFRESH_TOKEN_KEY
+  );
 }
-export async function apiFetch(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const token = getAccessToken();
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-    signal: requestSignal(init.signal),
-  });
-  if (response.status === 401 && retry && await refreshAccessToken()) return apiFetch(path, init, false);
-  return response;
-}
-export async function readError(response: Response) {
+
+
+// ======================================================
+// ERROR HANDLING
+// ======================================================
+
+export async function readError(
+  response: Response
+): Promise<string> {
   try {
-    const data = (await response.json()) as Record<string, unknown>;
-    return Object.values(data).flat().join(" ") || "Request failed.";
-  } catch { return "Request failed."; }
+    const data = await response.json();
+
+    if (typeof data === "string") {
+      return data;
+    }
+
+    if (data.detail) {
+      return String(data.detail);
+    }
+
+    if (data.message) {
+      return String(data.message);
+    }
+
+    if (data.error) {
+      return String(data.error);
+    }
+
+    const firstError =
+      Object.values(data)[0];
+
+    if (Array.isArray(firstError)) {
+      return String(firstError[0]);
+    }
+
+    if (firstError) {
+      return String(firstError);
+    }
+
+    return `Request failed with status ${response.status}`;
+  } catch {
+    return `Request failed with status ${response.status}`;
+  }
+}
+
+
+// ======================================================
+// COMMON FETCH
+// ======================================================
+
+async function apiRequest(
+  baseURL: string,
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = getAccessToken();
+
+  const headers = new Headers(
+    options.headers
+  );
+
+  if (
+    options.body &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
+
+  if (token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
+  }
+
+  return fetch(
+    `${baseURL}${path}`,
+    {
+      ...options,
+      headers,
+      signal: requestSignal(
+        options.signal
+      ),
+    }
+  );
+}
+
+
+// ======================================================
+// AUTH FETCH
+// ======================================================
+
+export async function authFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  return apiRequest(
+    AUTH_API_URL,
+    path,
+    options
+  );
+}
+
+
+// ======================================================
+// WORKSPACE FETCH
+// ======================================================
+
+export async function workspaceFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  return apiRequest(
+    WORKSPACE_API_URL,
+    path,
+    options
+  );
+}
+
+
+// ======================================================
+// apiFetch
+// ======================================================
+
+export async function apiFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  return workspaceFetch(
+    path,
+    options
+  );
+}
+
+
+// ======================================================
+// PAGINATION HELPER
+// ======================================================
+
+export function paginatedResults<T>(
+  data: T[] | PaginatedResponse<T>
+): T[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    data &&
+    Array.isArray(data.results)
+  ) {
+    return data.results;
+  }
+
+  return [];
+}
+
+
+// ======================================================
+// GET CURRENT USER
+// ======================================================
+
+export async function getCurrentUser(): Promise<User> {
+  const response =
+    await authFetch(
+      "/auth/me/"
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response)
+    );
+  }
+
+  return response.json();
+}
+
+
+// ======================================================
+// GET WORKSPACES
+// ======================================================
+
+export async function getWorkspaces(): Promise<Workspace[]> {
+  const response =
+    await workspaceFetch(
+      "/workspaces/"
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response)
+    );
+  }
+
+  const data =
+    await response.json();
+
+  return paginatedResults<Workspace>(
+    data
+  );
+}
+
+
+// ======================================================
+// CREATE WORKSPACE
+// ======================================================
+
+export async function createWorkspace(
+  name: string
+): Promise<Workspace> {
+  const response =
+    await workspaceFetch(
+      "/workspaces/",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+        }),
+      }
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response)
+    );
+  }
+
+  return response.json();
+}
+
+
+// ======================================================
+// GET DOCUMENTS
+// ======================================================
+
+export async function getDocuments(
+  workspaceId: string
+): Promise<DocumentRecord[]> {
+  const response =
+    await workspaceFetch(
+      `/documents/?workspace=${encodeURIComponent(
+        workspaceId
+      )}`
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response)
+    );
+  }
+
+  const data =
+    await response.json();
+
+  return paginatedResults<DocumentRecord>(
+    data
+  );
+}
+
+
+// ======================================================
+// CREATE DOCUMENT
+// ======================================================
+
+export async function createDocument(
+  workspaceId: string,
+  title: string
+): Promise<DocumentRecord> {
+  const response =
+    await workspaceFetch(
+      "/documents/",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          workspace: workspaceId,
+          title,
+          content: {},
+        }),
+      }
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response)
+    );
+  }
+
+  return response.json();
+}
+
+
+// ======================================================
+// LOGOUT
+// ======================================================
+
+export function logout(): void {
+  clearTokens();
+
+  if (
+    typeof window !== "undefined"
+  ) {
+    window.location.href =
+      "/login";
+  }
 }

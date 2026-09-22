@@ -1,8 +1,14 @@
 "use client";
 
+import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FolderKanban,
+  Plus,
+  Clock,
+  Users,
+} from "lucide-react";
 import {
   apiFetch,
   paginatedResults,
@@ -11,7 +17,17 @@ import {
   readError,
   TeamRecord,
   WorkspaceRecord,
+  User,
 } from "@/lib/api";
+import { Sidebar } from "@/components/ui/sidebar";
+import { Navbar } from "@/components/ui/navbar";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type ProjectStats = {
   total: number;
@@ -20,14 +36,18 @@ type ProjectStats = {
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [teams, setTeams] = useState<TeamRecord[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+
+  // Form Fields
   const [workspaceId, setWorkspaceId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [name, setName] = useState("");
@@ -36,66 +56,75 @@ export default function ProjectsPage() {
 
   const availableTeams = useMemo(
     () => teams.filter((team) => team.workspace === workspaceId),
-    [teams, workspaceId],
+    [teams, workspaceId]
   );
 
   useEffect(() => {
     let cancelled = false;
-    async function loadProjects() {
+    async function loadData() {
       try {
-        const [projectResponse, teamResponse, workspaceResponse] = await Promise.all([
+        const [meRes, projRes, teamRes, wsRes] = await Promise.all([
+          apiFetch("/auth/me/"),
           apiFetch("/v1/projects/"),
           apiFetch("/v1/teams/"),
           apiFetch("/v1/workspaces/"),
         ]);
         if (
-          projectResponse.status === 401 ||
-          teamResponse.status === 401 ||
-          workspaceResponse.status === 401
+          meRes.status === 401 ||
+          projRes.status === 401 ||
+          teamRes.status === 401 ||
+          wsRes.status === 401
         ) {
           router.replace("/login");
           return;
         }
-        if (!projectResponse.ok) throw new Error(await readError(projectResponse));
-        if (!teamResponse.ok) throw new Error(await readError(teamResponse));
-        if (!workspaceResponse.ok) throw new Error(await readError(workspaceResponse));
+        if (!meRes.ok) throw new Error(await readError(meRes));
+        if (!projRes.ok) throw new Error(await readError(projRes));
+        if (!teamRes.ok) throw new Error(await readError(teamRes));
+        if (!wsRes.ok) throw new Error(await readError(wsRes));
 
-        const projectData = (await projectResponse.json()) as
+        const userData = (await meRes.json()) as User;
+        const projectData = (await projRes.json()) as
           | PaginatedResponse<ProjectRecord>
           | ProjectRecord[];
-        const teamData = (await teamResponse.json()) as
+        const teamData = (await teamRes.json()) as
           | PaginatedResponse<TeamRecord>
           | TeamRecord[];
-        const workspaceData = (await workspaceResponse.json()) as
+        const workspaceData = (await wsRes.json()) as
           | PaginatedResponse<WorkspaceRecord>
           | WorkspaceRecord[];
+
         const availableProjects = paginatedResults(projectData);
         const availableWorkspaces = paginatedResults(workspaceData);
+
         const countEntries = await Promise.all(
           availableProjects.map(async (project) => {
             const response = await apiFetch(`/v1/projects/${project.id}/stats/`);
             if (!response.ok) return [project.id, 0] as const;
             const stats = (await response.json()) as ProjectStats;
             return [project.id, stats.total] as const;
-          }),
+          })
         );
+
         if (cancelled) return;
+        setUser(userData);
         setProjects(availableProjects);
         setTeams(paginatedResults(teamData));
         setWorkspaces(availableWorkspaces);
+        setActiveWorkspace(availableWorkspaces[0] || null);
         setWorkspaceId(availableWorkspaces[0]?.id || "");
         setTaskCounts(Object.fromEntries(countEntries));
       } catch (caught) {
         if (!cancelled) {
           setError(
-            caught instanceof Error ? caught.message : "Could not load projects.",
+            caught instanceof Error ? caught.message : "Could not load projects."
           );
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    void loadProjects();
+    void loadData();
     return () => {
       cancelled = true;
     };
@@ -126,7 +155,7 @@ export default function ProjectsPage() {
       setDescription("");
       setDueDate("");
       setTeamId("");
-      setShowForm(false);
+      setShowFormModal(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not create project.");
     } finally {
@@ -134,166 +163,216 @@ export default function ProjectsPage() {
     }
   }
 
+  const statusBadges = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+        return <Badge variant="success">Completed</Badge>;
+      case "IN_PROGRESS":
+        return <Badge variant="indigo">In Progress</Badge>;
+      case "PLANNING":
+        return <Badge variant="warning">Planning</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-slate-100 p-6 sm:p-10">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link href="/dashboard" className="text-sm font-semibold text-blue-700">
-              ← Workspace
-            </Link>
-            <p className="mt-4 text-sm font-bold uppercase tracking-widest text-slate-500">
-              Zeal
-            </p>
-            <h1 className="text-3xl font-bold text-slate-950">Projects</h1>
-            <p className="mt-1 text-slate-600">
-              Plan work, organize teams, and follow every task.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/notifications"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium"
-            >
-              Notifications
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowForm((current) => !current)}
-              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white"
-            >
-              {showForm ? "Cancel" : "New project"}
-            </button>
-          </div>
-        </header>
+    <div className="flex h-screen bg-slate-50 dark:bg-[#090d16] overflow-hidden">
+      <Sidebar
+        workspaces={workspaces}
+        activeWorkspace={activeWorkspace}
+        onSelectWorkspace={(ws) => {
+          setActiveWorkspace(ws);
+          setWorkspaceId(ws.id);
+        }}
+        onCreateWorkspace={() => router.push("/dashboard")}
+        currentUser={user}
+      />
 
-        {error && (
-          <p className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </p>
-        )}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <Navbar
+          breadcrumbs={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Projects" },
+          ]}
+          user={user}
+        />
 
-        {showForm && (
-          <form
-            onSubmit={createProject}
-            className="mb-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2"
-          >
-            <label className="text-sm font-medium text-slate-700">
-              Workspace
+        <main className="p-6 sm:p-8 max-w-7xl w-full mx-auto space-y-8">
+          {error && (
+            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium">
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                Projects
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Manage project tasks, assign team members, and track deliverables.
+              </p>
+            </div>
+            <Button onClick={() => setShowFormModal(true)}>
+              <Plus className="w-4 h-4" />
+              <span>New Project</span>
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-6 space-y-3">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-1/2" />
+                </Card>
+              ))}
+            </div>
+          ) : projects.length === 0 ? (
+            <EmptyState
+              title="No projects found"
+              description="Create a project to start managing tasks and collaborating with your team."
+              actionLabel="Create Project"
+              onAction={() => setShowFormModal(true)}
+              icon={<FolderKanban className="w-7 h-7" />}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => {
+                const team = teams.find((item) => item.id === project.team);
+                return (
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group">
+                    <Card className="p-6 h-full flex flex-col justify-between hover:border-indigo-500/60 hover:shadow-lg transition-all duration-200">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5" />
+                            {team?.name || "No Team"}
+                          </span>
+                          {statusBadges(project.status)}
+                        </div>
+
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {project.name}
+                        </h3>
+
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                          {project.description || "No project description provided."}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 mt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {taskCounts[project.id] ?? 0} Tasks
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          Due {project.due_date ? new Date(project.due_date).toLocaleDateString() : "Not set"}
+                        </span>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Modal: Create Project */}
+      <Modal
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        title="Create New Project"
+        description="Define a project to assign tasks and track team deliverables."
+      >
+        <form onSubmit={createProject} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">
+                Workspace
+              </label>
               <select
                 required
                 value={workspaceId}
-                onChange={(event) => {
-                  setWorkspaceId(event.target.value);
+                onChange={(e) => {
+                  setWorkspaceId(e.target.value);
                   setTeamId("");
                 }}
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+                className="h-11 px-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium"
               >
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
+                {workspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id}>
+                    {ws.name}
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="text-sm font-medium text-slate-700">
-              Team
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">
+                Team (Optional)
+              </label>
               <select
                 value={teamId}
-                onChange={(event) => setTeamId(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+                onChange={(e) => setTeamId(e.target.value)}
+                className="h-11 px-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium"
               >
-                <option value="">No team</option>
+                <option value="">No Team</option>
                 {availableTeams.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.name}
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="text-sm font-medium text-slate-700">
-              Project name
-              <input
-                required
-                maxLength={150}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Website launch"
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <label className="text-sm font-medium text-slate-700">
-              Due date
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <label className="text-sm font-medium text-slate-700 md:col-span-2">
-              Description
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="What will this project deliver?"
-                rows={3}
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={saving || !workspaceId}
-              className="rounded-lg bg-slate-950 px-4 py-2 font-medium text-white disabled:opacity-50 md:w-fit"
-            >
-              {saving ? "Creating…" : "Create project"}
-            </button>
-          </form>
-        )}
+            </div>
+          </div>
 
-        {loading ? (
-          <p className="text-slate-600">Loading projects…</p>
-        ) : projects.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <h2 className="text-xl font-bold">No projects yet</h2>
-            <p className="mt-2 text-slate-600">Create your first project to begin.</p>
-          </section>
-        ) : (
-          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => {
-              const team = teams.find((item) => item.id === project.team);
-              return (
-                <Link
-                  key={project.id}
-                  href={`/projects/${project.id}`}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">
-                        {team?.name ?? "No team"}
-                      </p>
-                      <h2 className="mt-1 text-xl font-bold text-slate-950">
-                        {project.name}
-                      </h2>
-                    </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                      {project.status}
-                    </span>
-                  </div>
-                  <p className="mt-4 line-clamp-2 min-h-12 text-sm text-slate-600">
-                    {project.description || "No description"}
-                  </p>
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-500">
-                    <span>{taskCounts[project.id] ?? 0} tasks</span>
-                    <span>Due {project.due_date ?? "not set"}</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </section>
-        )}
-      </div>
-    </main>
+          <Input
+            label="Project Name"
+            placeholder="e.g. Q3 Mobile App Launch"
+            required
+            maxLength={150}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <Input
+            label="Due Date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What are the goals of this project?"
+              className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowFormModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={saving}>
+              Create Project
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
   );
 }

@@ -1,249 +1,261 @@
 import Link from "next/link";
-
-const resourceHierarchy = [
-  { label: "Workspace", desc: "Organization container", icon: "◈" },
-  { label: "Team", desc: "Group with memberships", icon: "◉" },
-  { label: "Project", desc: "Tasks, activity, stats", icon: "◇" },
-  { label: "Task", desc: "Comments, attachments, notifications", icon: "▣" },
-];
+import {
+  Sparkles,
+  ArrowRight,
+  FileText,
+  Users,
+  FolderKanban,
+  CheckCircle2,
+  ShieldCheck,
+  Zap,
+  Globe,
+  Code2,
+  Layers,
+  Lock,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const features = [
   {
-    number: "01",
-    title: "Workspaces & Teams",
+    icon: <Layers className="w-5 h-5 text-indigo-500" />,
+    title: "Clean Workspace Hierarchy",
     description:
-      "Treat each Workspace as an organization. Teams and projects live inside, while tasks live inside projects — a clean hierarchy for any scale.",
+      "Organizations > Workspaces > Projects > Tasks & Documents. A clean, scalable structure for teams of any size.",
   },
   {
-    number: "02",
-    title: "Full-Stack REST API",
+    icon: <Globe className="w-5 h-5 text-purple-500" />,
+    title: "Real-Time WebSocket Sync",
     description:
-      "CRUD endpoints for teams, projects, tasks, comments, attachments, and notifications. Filter, search, and order every resource.",
+      "Collaborative Tiptap rich-text document editing powered by Django Channels & Redis pub/sub presence updates.",
   },
   {
-    number: "03",
-    title: "Role-Based Access",
+    icon: <Lock className="w-5 h-5 text-emerald-500" />,
+    title: "Role-Based Access Control",
     description:
-      "Owner/admin, project manager, contributor, and viewer roles. Permissions enforced at the backend — not just UI hiding.",
+      "Granular roles (Owner, Admin, Member, Editor, Viewer) strictly enforced by backend QuerySets & permissions.",
   },
   {
-    number: "04",
-    title: "Activity & Notifications",
+    icon: <Code2 className="w-5 h-5 text-blue-500" />,
+    title: "Developer-First REST API",
     description:
-      "Track every change in the activity log. Get notified for assignments, comments, and due dates. Scheduled reminders keep nothing missed.",
+      "Full OpenAPI / Swagger specification at /api/docs/ with JWT rotation, blacklisting, and signed webhooks.",
   },
   {
-    number: "05",
-    title: "Smart Caching",
+    icon: <Zap className="w-5 h-5 text-amber-500" />,
+    title: "Celery Task Queue & Reminders",
     description:
-      "Project stats are Redis-cached for 60 seconds. Task mutations invalidate the cache automatically — fast reads, always fresh.",
+      "Background processing for email notifications, scheduled due-date reminders, and Redis cache invalidation.",
   },
   {
-    number: "06",
-    title: "Developer-First",
+    icon: <ShieldCheck className="w-5 h-5 text-rose-500" />,
+    title: "Idempotent Operations",
     description:
-      "JWT authentication, OpenAPI/Swagger docs, Celery background jobs, PostgreSQL with row locking, and full test coverage.",
+      "Idempotency-Key headers prevent duplicate document mutations and keep network retries 100% safe.",
   },
-];
-
-const endpoints = [
-  { group: "Teams", paths: ["GET/POST /api/v1/teams/", "GET/PATCH/DELETE /api/v1/teams/{id}/", "GET/POST /api/v1/teams/{id}/members/"] },
-  { group: "Projects", paths: ["GET/POST /api/v1/projects/", "GET/PATCH/DELETE /api/v1/projects/{id}/", "GET /api/v1/projects/{id}/activity/", "GET /api/v1/projects/{id}/stats/"] },
-  { group: "Tasks", paths: ["GET/POST /api/v1/tasks/", "GET/PATCH/DELETE /api/v1/tasks/{id}/", "GET/POST /api/v1/tasks/{id}/comments/", "GET/POST /api/v1/tasks/{id}/attachments/"] },
-  { group: "Notifications", paths: ["GET /api/v1/notifications/", "POST /api/v1/notifications/{id}/read/", "POST /api/v1/notifications/read-all/"] },
 ];
 
 const permissionMatrix = [
-  { role: "Workspace owner/admin", read: true, create: true, modify: true, manage: true },
-  { role: "Project manager", read: true, create: true, modify: true, manage: true },
-  { role: "Contributor", read: true, create: true, modify: true, manage: false },
+  { role: "Workspace Owner / Admin", read: true, create: true, modify: true, manage: true },
+  { role: "Project Manager", read: true, create: true, modify: true, manage: true },
+  { role: "Contributor / Editor", read: true, create: true, modify: true, manage: false },
   { role: "Viewer", read: true, create: false, modify: false, manage: false },
 ];
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#0d0f13] text-white">
-      <header className="relative z-20 border-b border-white/5">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
-          <span className="text-xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Zeal</span>
-          </span>
-          <div className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
-            <a href="#hierarchy" className="transition-colors hover:text-white">Hierarchy</a>
-            <a href="#features" className="transition-colors hover:text-white">Features</a>
-            <a href="#api" className="transition-colors hover:text-white">API</a>
-            <a href="#permissions" className="transition-colors hover:text-white">Permissions</a>
-          </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 transition-colors duration-200">
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#090d16]/70 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-500/20">
+              Z
+            </div>
+            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-800 dark:from-white dark:via-indigo-200 dark:to-slate-200 bg-clip-text text-transparent">
+              Zeal
+            </span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600 dark:text-slate-400">
+            <a href="#features" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Features</a>
+            <a href="#hierarchy" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Architecture</a>
+            <a href="#permissions" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Permissions</a>
+          </nav>
+
           <div className="flex items-center gap-3">
-            <Link href="/login" className="px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:text-white sm:px-4">
-              Sign in
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              Sign In
             </Link>
-            <Link href="/register" className="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 sm:px-5">
-              Sign up
+            <Link
+              href="/register"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-500/20 transition-all active:scale-95"
+            >
+              Get Started
             </Link>
           </div>
-        </nav>
+        </div>
       </header>
 
-      <section className="relative">
-        <div aria-hidden="true" className="absolute left-1/2 top-0 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-indigo-600/15 blur-[140px]" />
-        <div className="relative mx-auto max-w-7xl px-5 pb-20 pt-20 text-center sm:px-8 sm:pt-28 lg:px-12 lg:pt-32">
-          <p className="mx-auto mb-6 w-fit rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-sm font-medium text-indigo-300">
-            Workspace-based project management
-          </p>
-          <h1 className="mx-auto max-w-5xl text-5xl font-bold tracking-[-0.04em] text-white sm:text-6xl lg:text-7xl">
-            Organize work,
-            <span className="block bg-gradient-to-r from-indigo-300 via-violet-400 to-indigo-500 bg-clip-text text-transparent">
-              from workspace to task.
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-20 pb-24 md:pt-32 md:pb-32">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-500/10 dark:bg-indigo-500/15 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-6 text-center relative z-10 space-y-8">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Notion + Linear + Real-Time WebSocket Docs</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] text-slate-900 dark:text-slate-50">
+            The collaborative workspace for{" "}
+            <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 dark:from-indigo-400 dark:via-violet-400 dark:to-purple-400 bg-clip-text text-transparent">
+              modern engineering teams.
             </span>
           </h1>
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-zinc-400 sm:text-lg">
-            Zeal treats every Workspace as an organization. Teams, projects,
-            tasks, and notifications all live in a clean hierarchy — with a
-            full REST API, real-time activity, and role-based access.
+
+          <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
+            Zeal combines workspace-based organization, Tiptap rich-text document editing, live presence sync, and task workflows into one fast platform.
           </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href="#api" className="w-full rounded-lg border border-white/10 bg-white/5 px-7 py-3.5 font-semibold text-zinc-200 transition hover:border-white/20 hover:bg-white/10 sm:w-auto">
-              Explore API
-            </a>
-            <Link href="/register" className="w-full rounded-lg bg-indigo-500 px-7 py-3.5 font-semibold text-white transition hover:bg-indigo-400 sm:w-auto text-center">
-              Get started free
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <Link
+              href="/register"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 group"
+            >
+              <span>Start Free Trial</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
+              href="/login"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-all text-center"
+            >
+              Sign In to Demo
             </Link>
           </div>
-        </div>
-      </section>
 
-      <section id="hierarchy" className="border-y border-white/5 bg-[#111318] py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">Resource hierarchy</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">
-              Everything in its place.
-            </h2>
-            <p className="mt-5 leading-7 text-zinc-400">
-              A clean tree from organization down to individual tasks — with
-              comments, attachments, and notifications attached to every level.
-            </p>
-          </div>
-          <div className="mt-14 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0f13] p-6 sm:p-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
-              {resourceHierarchy.map((item, i) => (
-                <div key={item.label} className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-indigo-400/30 hover:bg-white/[0.05]">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl text-indigo-400">{item.icon}</span>
-                    <div>
-                      <h3 className="text-lg font-semibold">{item.label}</h3>
-                      <p className="mt-1 text-sm text-zinc-400">{item.desc}</p>
-                    </div>
+          {/* Interactive UI Card Preview */}
+          <div className="pt-12 max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-4 sm:p-6 shadow-2xl backdrop-blur-md text-left space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500" />
+                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className="ml-2 text-xs font-medium text-slate-400">Zeal Workspace / Project Engineering</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>WebSocket Connected</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span>DOCUMENT EDITOR</span>
+                    <FileText className="w-4 h-4 text-indigo-500" />
                   </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Product Spec v2.4</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiptap rich text with slash commands and autosave.</p>
                 </div>
-              ))}
-            </div>
-            <div className="mt-6 rounded-lg bg-indigo-500/10 px-4 py-3 text-sm text-indigo-300">
-              <code className="font-mono">All endpoints require JWT: Authorization: Bearer ACCESS_TOKEN</code>
+
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span>TASK KANBAN</span>
+                    <FolderKanban className="w-4 h-4 text-purple-500" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Sprint 14 Backlog</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Backlog, In Progress, Done status columns.</p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span>TEAM COLLABORATION</span>
+                    <Users className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live Presence</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Active cursors and real-time document typing.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="features" className="py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">Features</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">
-              Built for structured teams.
+      {/* Features Grid Section */}
+      <section id="features" className="py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/40">
+        <div className="max-w-7xl mx-auto px-6 space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+              Platform Features
             </h2>
-            <p className="mt-5 leading-7 text-zinc-400">
-              From workspace creation to task-level notifications — every piece
-              is designed to keep your team aligned and productive.
+            <p className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
+              Everything your team needs to write and deliver.
             </p>
           </div>
-          <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <article
-                key={feature.number}
-                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-7 transition hover:-translate-y-1 hover:border-indigo-400/30 hover:bg-white/[0.05]"
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feat, idx) => (
+              <div
+                key={idx}
+                className="p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 hover:border-indigo-500/50 transition-all space-y-3 group"
               >
-                <span className="text-sm font-semibold text-indigo-400">{feature.number}</span>
-                <h3 className="mt-8 text-xl font-semibold">{feature.title}</h3>
-                <p className="mt-3 max-w-lg leading-7 text-zinc-400">{feature.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="api" className="border-y border-white/5 bg-[#111318] py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">API endpoints</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">
-              Every resource, covered.
-            </h2>
-            <p className="mt-5 leading-7 text-zinc-400">
-              Full CRUD for teams, projects, tasks, comments, attachments,
-              and notifications — with filtering, search, and ordering on every list.
-            </p>
-          </div>
-          <div className="mt-14 grid gap-4 md:grid-cols-2">
-            {endpoints.map((group) => (
-              <div key={group.group} className="rounded-2xl border border-white/10 bg-[#0d0f13] p-6">
-                <h3 className="text-lg font-semibold text-indigo-400">{group.group}</h3>
-                <div className="mt-4 flex flex-col gap-2">
-                  {group.paths.map((path) => (
-                    <code key={path} className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-mono text-zinc-300">
-                      {path}
-                    </code>
-                  ))}
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center group-hover:scale-110 transition-transform">
+                  {feat.icon}
                 </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {feat.title}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {feat.description}
+                </p>
               </div>
             ))}
           </div>
-          <div className="mt-8 rounded-2xl border border-indigo-400/20 bg-gradient-to-r from-indigo-500/10 via-transparent to-violet-500/10 p-6">
-            <p className="text-sm text-zinc-300">
-              <strong className="text-white">Interactive docs:</strong> Swagger UI at{" "}
-              <code className="text-indigo-400">http://localhost:8000/api/docs/</code> — paste your JWT token in the Authorize dialog to test live.
-            </p>
-          </div>
         </div>
       </section>
 
-      <section id="permissions" className="py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">Permission matrix</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">
-              Access is enforced, not hidden.
+      {/* Permissions Matrix */}
+      <section id="permissions" className="py-20 border-t border-slate-200/80 dark:border-slate-800/80">
+        <div className="max-w-5xl mx-auto px-6 space-y-8">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+              Security &amp; Permissions
             </h2>
-            <p className="mt-5 leading-7 text-zinc-400">
-              Four roles across four permission levels. Backend QuerySets and
-              object permissions enforce every decision — hiding a button is never authorization.
+            <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              Enforced at the Django backend level.
             </p>
           </div>
-          <div className="mt-14 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0f13] shadow-2xl shadow-black/40">
-            <table className="w-full text-left text-sm">
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.03]">
-                  <th className="px-6 py-4 font-semibold text-zinc-300">Role</th>
-                  <th className="px-6 py-4 text-center font-semibold text-zinc-300">Read</th>
-                  <th className="px-6 py-4 text-center font-semibold text-zinc-300">Create tasks</th>
-                  <th className="px-6 py-4 text-center font-semibold text-zinc-300">Modify tasks</th>
-                  <th className="px-6 py-4 text-center font-semibold text-zinc-300">Manage project</th>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="p-4">Role</th>
+                  <th className="p-4 text-center">Read Documents</th>
+                  <th className="p-4 text-center">Create Content</th>
+                  <th className="p-4 text-center">Modify Content</th>
+                  <th className="p-4 text-center">Manage Members</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
-                {permissionMatrix.map((row) => (
-                  <tr key={row.role} className="transition hover:bg-white/[0.02]">
-                    <td className="px-6 py-4 font-medium text-zinc-200">{row.role}</td>
-                    {['read', 'create', 'modify', 'manage'].map((perm) => (
-                      <td key={perm} className="px-6 py-4 text-center">
-                        {row[perm as keyof typeof row] ? (
-                          <span className="text-indigo-400">✓</span>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )}
-                      </td>
-                    ))}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                {permissionMatrix.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="p-4 font-semibold text-slate-900 dark:text-slate-100">{row.role}</td>
+                    <td className="p-4 text-center"><CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /></td>
+                    <td className="p-4 text-center">
+                      {row.create ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /> : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                    </td>
+                    <td className="p-4 text-center">
+                      {row.modify ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /> : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                    </td>
+                    <td className="p-4 text-center">
+                      {row.manage ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /> : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -252,64 +264,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">How it works</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">
-              Start managing your team in minutes.
-            </h2>
-          </div>
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
-            {[
-              { number: "1", title: "Create a Workspace", description: "Register and set up your organization. Invite teams and define roles." },
-              { number: "2", title: "Add Projects & Tasks", description: "Create projects inside workspaces, tasks inside projects. Assign priorities, statuses, and due dates." },
-              { number: "3", title: "Collaborate & Track", description: "Use comments, attachments, activity logs, and notifications to keep everything moving." },
-            ].map((step) => (
-              <article key={step.number} className="relative rounded-2xl border border-white/10 bg-[#13151b] p-7">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500 font-bold">{step.number}</span>
-                <h3 className="mt-6 text-xl font-semibold">{step.title}</h3>
-                <p className="mt-3 leading-7 text-zinc-400">{step.description}</p>
-              </article>
-            ))}
+      {/* CTA Section */}
+      <section className="py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white">
+        <div className="max-w-4xl mx-auto px-6 text-center space-y-6">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+            Ready to streamline your collaborative workspace?
+          </h2>
+          <p className="text-indigo-200/80 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+            Create your account today and experience real-time document editing backed by Django REST &amp; Channels.
+          </p>
+          <div className="pt-2 flex justify-center gap-4">
+            <Link
+              href="/register"
+              className="px-8 py-3.5 rounded-xl bg-white text-indigo-950 font-bold text-sm shadow-xl hover:bg-indigo-50 transition-all"
+            >
+              Get Started Free
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="pb-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="overflow-hidden rounded-3xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/20 via-[#151722] to-violet-500/10 px-7 py-14 text-center sm:px-12 sm:py-20">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">Ready to get started?</p>
-            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-5xl">
-              Your workspace, your team, your workflow.
-            </h2>
-            <p className="mx-auto mt-5 max-w-xl leading-7 text-zinc-300">
-              Sign up today and start organizing projects, tasks, and notifications
-              in a workspace designed for real collaboration.
-            </p>
-            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-              <Link href="/register" className="rounded-lg bg-indigo-500 px-7 py-3.5 font-semibold text-white transition hover:bg-indigo-400">
-                Create an account
-              </Link>
-              <Link href="/login" className="rounded-lg border border-white/15 bg-white/5 px-7 py-3.5 font-semibold text-white transition hover:bg-white/10">
-                Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
-          <p>© 2026 Zeal. Workspace-based project management</p>
-          <div className="flex gap-6">
-            <a href="#features" className="transition hover:text-zinc-300">Features</a>
-            <a href="#api" className="transition hover:text-zinc-300">API Docs</a>
-            <Link href="/login" className="transition hover:text-zinc-300">Sign in</Link>
-            <Link href="/register" className="transition hover:text-zinc-300">Register</Link>
-          </div>
-        </div>
+      {/* Footer */}
+      <footer className="border-t border-slate-200/80 dark:border-slate-800/80 py-8 text-xs text-slate-500 dark:text-slate-400 text-center">
+        <p>&copy; 2026 Zeal. All rights reserved. Built with Next.js &amp; Django REST API.</p>
       </footer>
-    </main>
+    </div>
   );
 }

@@ -232,6 +232,9 @@ class DocumentMember(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["document", "user"], name="unique_document_member")
         ]
+        
 
     def __str__(self):
         return f"{self.user} - {self.document} - {self.role}"
+    
+    

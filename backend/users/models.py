@@ -19,7 +19,7 @@ class ZealUserManager(UserManager):
 
 
 class User(AbstractUser):
-    email = models.EmailField(unique=True, null=True, blank=True)
+    email = models.EmailField(unique=False, null=True, blank=True)
     objects = ZealUserManager()
 
     def __str__(self):

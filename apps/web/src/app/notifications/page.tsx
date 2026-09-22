@@ -1,8 +1,9 @@
 "use client";
 
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Bell, CheckCheck, ArrowRight, Clock } from "lucide-react";
 import {
   apiFetch,
   NotificationRecord,
@@ -10,6 +11,12 @@ import {
   PaginatedResponse,
   readError,
 } from "@/lib/api";
+import { Navbar } from "@/components/ui/navbar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function notificationHref(notification: NotificationRecord) {
   const projectMatch = notification.target_url.match(/^\/projects\/([^/]+)/);
@@ -22,9 +29,10 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read_at).length,
-    [notifications],
+    () => notifications.filter((n) => !n.read_at).length,
+    [notifications]
   );
 
   useEffect(() => {
@@ -44,7 +52,7 @@ export default function NotificationsPage() {
       } catch (caught) {
         if (!cancelled) {
           setError(
-            caught instanceof Error ? caught.message : "Could not load notifications.",
+            caught instanceof Error ? caught.message : "Could not load notifications."
           );
         }
       } finally {
@@ -63,18 +71,16 @@ export default function NotificationsPage() {
     try {
       const response = await apiFetch(
         `/v1/notifications/${notificationId}/read/`,
-        { method: "POST" },
+        { method: "POST" }
       );
       if (!response.ok) throw new Error(await readError(response));
       const updated = (await response.json()) as NotificationRecord;
       setNotifications((current) =>
-        current.map((notification) =>
-          notification.id === updated.id ? updated : notification,
-        ),
+        current.map((n) => (n.id === updated.id ? updated : n))
       );
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Could not update notification.",
+        caught instanceof Error ? caught.message : "Could not update notification."
       );
     } finally {
       setSaving(false);
@@ -91,14 +97,14 @@ export default function NotificationsPage() {
       if (!response.ok) throw new Error(await readError(response));
       const readAt = new Date().toISOString();
       setNotifications((current) =>
-        current.map((notification) => ({
-          ...notification,
-          read_at: notification.read_at ?? readAt,
-        })),
+        current.map((n) => ({
+          ...n,
+          read_at: n.read_at ?? readAt,
+        }))
       );
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Could not update notifications.",
+        caught instanceof Error ? caught.message : "Could not update notifications."
       );
     } finally {
       setSaving(false);
@@ -106,106 +112,124 @@ export default function NotificationsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 sm:p-10">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link href="/dashboard" className="text-sm font-semibold text-blue-700">
-              ← Workspace
-            </Link>
-            <p className="mt-4 text-sm font-bold uppercase tracking-widest text-slate-500">
-              Zeal
-            </p>
-            <h1 className="text-3xl font-bold text-slate-950">Notifications</h1>
-            <p className="mt-1 text-slate-600">
-              {unreadCount} unread {unreadCount === 1 ? "notification" : "notifications"}
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/dashboard/projects"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium"
-            >
-              Projects
-            </Link>
-            <button
-              type="button"
-              disabled={saving || unreadCount === 0}
-              onClick={markAllRead}
-              className="rounded-lg bg-slate-950 px-4 py-2 font-medium text-white disabled:opacity-50"
-            >
-              Mark all read
-            </button>
-          </div>
-        </header>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col">
+      <Navbar
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Notifications" },
+        ]}
+      />
 
+      <main className="p-6 sm:p-8 max-w-4xl w-full mx-auto space-y-8 flex-1">
         {error && (
-          <p className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium">
             {error}
-          </p>
+          </div>
         )}
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                Notifications
+              </h1>
+              {unreadCount > 0 && <Badge variant="indigo">{unreadCount} Unread</Badge>}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Task assignments, comments, and due date reminders.
+            </p>
+          </div>
+
+          {unreadCount > 0 && (
+            <Button
+              onClick={markAllRead}
+              variant="outline"
+              size="sm"
+              isLoading={saving}
+            >
+              <CheckCheck className="w-4 h-4" />
+              <span>Mark All as Read</span>
+            </Button>
+          )}
+        </div>
 
         {loading ? (
-          <p className="text-slate-600">Loading notifications…</p>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-5 space-y-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/3" />
+              </Card>
+            ))}
+          </div>
         ) : notifications.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <h2 className="text-xl font-bold">You are all caught up</h2>
-            <p className="mt-2 text-slate-600">
-              Assignment, comment, and due-date updates will appear here.
-            </p>
-          </section>
+          <EmptyState
+            title="You're all caught up!"
+            description="When team members assign tasks or comment on your projects, notifications will appear here."
+            icon={<Bell className="w-7 h-7" />}
+          />
         ) : (
-          <section className="space-y-3">
-            {notifications.map((notification) => (
-              <article
-                key={notification.id}
-                className={`rounded-2xl border p-5 shadow-sm ${
-                  notification.read_at
-                    ? "border-slate-200 bg-white"
-                    : "border-blue-200 bg-blue-50"
+          <div className="space-y-4">
+            {notifications.map((n) => (
+              <Card
+                key={n.id}
+                className={`p-5 transition-all ${
+                  !n.read_at
+                    ? "border-indigo-500/50 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-xs"
+                    : "opacity-80"
                 }`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex gap-3">
-                    <span
-                      className={`mt-2 h-2.5 w-2.5 rounded-full ${
-                        notification.read_at ? "bg-slate-300" : "bg-blue-600"
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
+                        !n.read_at ? "bg-indigo-600 animate-pulse" : "bg-slate-300 dark:bg-slate-700"
                       }`}
                     />
-                    <div>
-                      <p className="font-semibold text-slate-950">
-                        {notification.message}
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+                        {n.message}
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {notification.actor_username
-                          ? `From ${notification.actor_username} · `
-                          : ""}
-                        {new Date(notification.created_at).toLocaleString()}
-                      </p>
-                      <Link
-                        href={notificationHref(notification)}
-                        className="mt-3 inline-block text-sm font-semibold text-blue-700"
-                      >
-                        Open project →
-                      </Link>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-400 pt-0.5">
+                        {n.actor_username && (
+                          <span>From @{n.actor_username}</span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(n.created_at).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="pt-2">
+                        <Link
+                          href={notificationHref(n)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          <span>Open Project Details</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                  {!notification.read_at && (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => markRead(notification.id)}
-                      className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 disabled:opacity-50"
+
+                  {!n.read_at && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => markRead(n.id)}
+                      isLoading={saving}
+                      className="text-xs"
                     >
-                      Mark read
-                    </button>
+                      Mark Read
+                    </Button>
                   )}
                 </div>
-              </article>
+              </Card>
             ))}
-          </section>
+          </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

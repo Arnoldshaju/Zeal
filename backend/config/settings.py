@@ -5,35 +5,93 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+# ======================================================
+# BASE
+# ======================================================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-development-only-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
+
+# ======================================================
+# SECURITY
+# ======================================================
+
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-development-only-change-me",
+)
+
+DEBUG = os.getenv(
+    "DJANGO_DEBUG",
+    "True",
+).lower() in {"1", "true", "yes"}
+
+
 def env_list(name, default):
-    return [value.strip() for value in os.getenv(name, default).split(",") if value.strip()]
+    return [
+        value.strip()
+        for value in os.getenv(name, default).split(",")
+        if value.strip()
+    ]
 
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    os.environ.get("RENDER_EXTERNAL_HOSTNAME", ""),
 ]
+
+RENDER_EXTERNAL_HOSTNAME = os.getenv(
+    "RENDER_EXTERNAL_HOSTNAME"
+)
+
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(
+        RENDER_EXTERNAL_HOSTNAME
+    )
+
+
+# ======================================================
+# JWT SECRET
+# IMPORTANT:
+# This MUST be the same value used by auth-service.
+# ======================================================
+
+JWT_SECRET_KEY = os.getenv(
+    "JWT_SECRET_KEY"
+)
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY is missing from workspace-service/.env"
+    )
+
+
+# ======================================================
+# APPLICATIONS
+# ======================================================
 
 INSTALLED_APPS = [
     "daphne",
+
+    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    # Third party
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "drf_spectacular",
     "corsheaders",
     "channels",
+
+    # Zeal apps
     "users",
     "workspaces",
     "teams",
@@ -42,176 +100,456 @@ INSTALLED_APPS = [
     "collaboration",
 ]
 
+
+# ======================================================
+# CUSTOM USER
+# ======================================================
+
 AUTH_USER_MODEL = "users.User"
+
+
+# ======================================================
+# MIDDLEWARE
+# ======================================================
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+
     "django.middleware.security.SecurityMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
+
     "django.middleware.common.CommonMiddleware",
+
     "django.middleware.csrf.CsrfViewMiddleware",
+
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+
     "django.contrib.messages.middleware.MessageMiddleware",
+
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+
+# ======================================================
+# URL / TEMPLATES
+# ======================================================
+
 ROOT_URLCONF = "config.urls"
+
+
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "BACKEND":
+            "django.template.backends.django.DjangoTemplates",
+
+        "DIRS": [
+            BASE_DIR / "templates"
+        ],
+
         "APP_DIRS": True,
+
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
+
                 "django.template.context_processors.request",
+
                 "django.contrib.auth.context_processors.auth",
+
                 "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
+
+
+# ======================================================
+# ASGI / WSGI
+# ======================================================
+
 WSGI_APPLICATION = "config.wsgi.application"
+
 ASGI_APPLICATION = "config.asgi.application"
+
+
+# ======================================================
+# DATABASE
+# ======================================================
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "zeal"),
-        "USER": os.getenv("POSTGRES_USER", "zeal"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "zeal"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+
+        "NAME": os.getenv(
+            "POSTGRES_DB",
+            "zeal",
+        ),
+
+        "USER": os.getenv(
+            "POSTGRES_USER",
+            "zeal",
+        ),
+
+        "PASSWORD": os.getenv(
+            "POSTGRES_PASSWORD",
+            "zeal",
+        ),
+
+        "HOST": os.getenv(
+            "POSTGRES_HOST",
+            "localhost",
+        ),
+
+        "PORT": os.getenv(
+            "POSTGRES_PORT",
+            "5432",
+        ),
     }
 }
 
+
+# ======================================================
+# PASSWORD VALIDATION
+# ======================================================
+
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 8},
+        "NAME":
+            "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+
+    {
+        "NAME":
+            "django.contrib.auth.password_validation.MinimumLengthValidator",
+
+        "OPTIONS": {
+            "min_length": 8,
+        },
+    },
+
+    {
+        "NAME":
+            "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+
+    {
+        "NAME":
+            "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
 ]
 
+
+# ======================================================
+# INTERNATIONALIZATION
+# ======================================================
+
 LANGUAGE_CODE = "en-us"
+
 TIME_ZONE = "UTC"
+
 USE_I18N = True
+
 USE_TZ = True
+
+
+# ======================================================
+# STATIC / MEDIA
+# ======================================================
+
 STATIC_URL = "static/"
+
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 MEDIA_URL = "/media/"
+
 MEDIA_ROOT = BASE_DIR / "media"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# ======================================================
+# PASSWORD RESET
+# ======================================================
+
 PASSWORD_RESET_TIMEOUT = 60 * 60
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Zeal <no-reply@zeal.local>")
+
+
+# ======================================================
+# FRONTEND
+# ======================================================
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:3000",
+)
+
+
+# ======================================================
+# EMAIL
+# ======================================================
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "Zeal <no-reply@zeal.local>",
+)
+
+
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
 )
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {"1", "true", "yes"}
-EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+
+
+EMAIL_HOST = os.getenv(
+    "EMAIL_HOST",
+    "smtp.gmail.com",
+)
+
+
+EMAIL_PORT = int(
+    os.getenv(
+        "EMAIL_PORT",
+        "587",
+    )
+)
+
+
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER",
+    "",
+)
+
+
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD",
+    "",
+)
+
+
+EMAIL_USE_TLS = os.getenv(
+    "EMAIL_USE_TLS",
+    "True",
+).lower() in {"1", "true", "yes"}
+
+
+EMAIL_TIMEOUT = int(
+    os.getenv(
+        "EMAIL_TIMEOUT",
+        "10",
+    )
+)
+
+
+# ======================================================
+# CORS
+# ======================================================
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000",
+    "http://localhost:3000,http://127.0.0.1:3000",
 )
+
+
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:3000",
+    "http://localhost:3000,http://127.0.0.1:3000",
 )
+
+
 CORS_ALLOW_CREDENTIALS = True
+
+
+# ======================================================
+# DJANGO REST FRAMEWORK
+# ======================================================
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
+
         "rest_framework.filters.SearchFilter",
+
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+
+    "DEFAULT_PAGINATION_CLASS":
+        "rest_framework.pagination.PageNumberPagination",
+
     "PAGE_SIZE": 20,
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "EXCEPTION_HANDLER": "config.exceptions.api_exception_handler",
+
+    "DEFAULT_SCHEMA_CLASS":
+        "drf_spectacular.openapi.AutoSchema",
+
+    "EXCEPTION_HANDLER":
+        "config.exceptions.api_exception_handler",
+
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
+
         "rest_framework.throttling.AnonRateThrottle",
     ],
+
     "DEFAULT_THROTTLE_RATES": {
         "user": "1000/day",
+
         "anon": "100/day",
     },
 }
 
+
+# ======================================================
+# SIMPLE JWT
+# IMPORTANT:
+# SIGNING_KEY MUST MATCH AUTH SERVICE
+# ======================================================
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME":
+        timedelta(minutes=15),
+
+    "REFRESH_TOKEN_LIFETIME":
+        timedelta(days=7),
+
+    "ROTATE_REFRESH_TOKENS":
+        True,
+
+    "BLACKLIST_AFTER_ROTATION":
+        True,
+
+    "SIGNING_KEY":
+        JWT_SECRET_KEY,
+}
+
+
+# ======================================================
+# DRF SPECTACULAR / SWAGGER
+# ======================================================
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Zeal API",
+
     "DESCRIPTION": (
-        "API for Zeal workspaces, teams, projects, tasks, documents, "
-        "notifications, and collaboration.\n\n"
-        "**Swagger authorization:** paste only the access-token value. "
-        "Do not include `Bearer`; Swagger adds it automatically."
+        "API for Zeal workspaces, teams, projects, tasks, "
+        "documents, notifications, and collaboration.\n\n"
+        "**Swagger authorization:** paste only the access-token "
+        "value. Do not include `Bearer`; Swagger adds it automatically."
     ),
+
     "VERSION": "1.0.0",
+
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
+
         "config.schema.clarify_jwt_authorization",
     ],
+
     "SWAGGER_UI_SETTINGS": {
         "persistAuthorization": False,
     },
 }
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-}
+
+# ======================================================
+# REDIS
+# ======================================================
+
+REDIS_URL = os.getenv(
+    "REDIS_URL",
+    "redis://localhost:6379/0",
+)
+
+
+# ======================================================
+# DJANGO CHANNELS
+# ======================================================
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "BACKEND":
+            "channels_redis.core.RedisChannelLayer",
+
         "CONFIG": {
-            "hosts": [os.getenv("REDIS_URL", "redis://localhost:6379/0")],
+            "hosts": [
+                REDIS_URL
+            ],
         },
     }
 }
 
+
+# ======================================================
+# DJANGO CACHE
+# ======================================================
+
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("CACHE_URL", "redis://localhost:6379/1"),
+        "BACKEND":
+            "django.core.cache.backends.redis.RedisCache",
+
+        "LOCATION":
+            REDIS_URL,
     }
 }
 
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/2")
+
+# ======================================================
+# CELERY
+# ======================================================
+
+CELERY_BROKER_URL = os.getenv(
+    "CELERY_BROKER_URL",
+    REDIS_URL,
+)
+
+
 CELERY_RESULT_BACKEND = os.getenv(
     "CELERY_RESULT_BACKEND",
-    "redis://localhost:6379/3",
+    REDIS_URL,
 )
+
+
 CELERY_TASK_ALWAYS_EAGER = (
-    os.getenv("CELERY_TASK_ALWAYS_EAGER", "False").lower()
+    os.getenv(
+        "CELERY_TASK_ALWAYS_EAGER",
+        "False",
+    ).lower()
     in {"1", "true", "yes"}
 )
+
+
 CELERY_BEAT_SCHEDULE = {
     "delete-expired-workspace-invitations": {
-        "task": "workspaces.tasks.delete_expired_invitations",
-        "schedule": timedelta(hours=24),
+        "task":
+            "workspaces.tasks.delete_expired_invitations",
+
+        "schedule":
+            timedelta(hours=24),
     },
+
     "send-project-task-reminders": {
-        "task": "projects.tasks.send_due_task_reminders",
-        "schedule": timedelta(hours=24),
+        "task":
+            "projects.tasks.send_due_task_reminders",
+
+        "schedule":
+            timedelta(hours=24),
     },
 }
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "development-webhook-secret")
+
+
+# ======================================================
+# WEBHOOK
+# ======================================================
+
+WEBHOOK_SECRET = os.getenv(
+    "WEBHOOK_SECRET",
+    "development-webhook-secret",
+)
