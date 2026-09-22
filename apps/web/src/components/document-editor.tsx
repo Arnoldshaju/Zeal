@@ -47,6 +47,7 @@ import { Card } from "@/components/ui/card";
 import { SlashCommandMenu } from "@/components/ui/slash-command-menu";
 import { RevisionDrawer } from "@/components/ui/revision-drawer";
 import { downloadFile, jsonToMarkdown, printDocument } from "@/lib/document-exporter";
+import { AICopilotBar } from "@/components/ui/ai-copilot-bar";
 
 const EMPTY_DOCUMENT: JSONContent = {
   type: "doc",
@@ -68,6 +69,8 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
   // Advanced features state
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [revisionDrawerOpen, setRevisionDrawerOpen] = useState(false);
+  const [aiCopilotOpen, setAiCopilotOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
 
   const loadedRef = useRef(false);
   const canEditRef = useRef(false);
@@ -272,6 +275,25 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
     titleRef.current = revTitle;
     editor.commands.setContent(revContent as JSONContent, { emitUpdate: true });
     setStatus("saved");
+  };
+
+  const handleOpenAICopilot = () => {
+    if (editor) {
+      const { from, to } = editor.state.selection;
+      const text = editor.state.doc.textBetween(from, to, " ");
+      setSelectedText(text);
+    }
+    setAiCopilotOpen(true);
+  };
+
+  const handleApplyAIResult = (resultText: string, mode: "replace" | "insert_below") => {
+    if (!editor) return;
+    if (mode === "replace") {
+      editor.chain().focus().insertContent(resultText).run();
+    } else {
+      editor.chain().focus().createParagraphNear().insertContent(resultText).run();
+    }
+    setAiCopilotOpen(false);
   };
 
   return (
@@ -481,6 +503,16 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
 
             <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
 
+            {/* AI Assistant Launcher */}
+            <button
+              onClick={handleOpenAICopilot}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm"
+              title="Launch Zeal AI Assistant"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Ask AI</span>
+            </button>
+
             {/* Notion-like Slash Menu Launcher */}
             <button
               onClick={() => setSlashMenuOpen((prev) => !prev)}
@@ -497,12 +529,24 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
           </div>
         )}
 
+        {/* AI Copilot Bar */}
+        <AICopilotBar
+          isOpen={aiCopilotOpen}
+          onClose={() => setAiCopilotOpen(false)}
+          selectedText={selectedText}
+          onApplyResult={handleApplyAIResult}
+        />
+
         {/* Slash Command Menu Popover */}
         <div className="relative">
           <SlashCommandMenu
             editor={editor}
             isOpen={slashMenuOpen}
             onClose={() => setSlashMenuOpen(false)}
+            onSelectAI={() => {
+              setSlashMenuOpen(false);
+              handleOpenAICopilot();
+            }}
           />
         </div>
 

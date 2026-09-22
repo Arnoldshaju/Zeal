@@ -19,12 +19,14 @@ export interface SlashCommandMenuProps {
   editor: Editor | null;
   isOpen: boolean;
   onClose: () => void;
+  onSelectAI?: () => void;
 }
 
 export function SlashCommandMenu({
   editor,
   isOpen,
   onClose,
+  onSelectAI,
 }: SlashCommandMenuProps) {
   const [search, setSearch] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -44,6 +46,14 @@ export function SlashCommandMenu({
   if (!isOpen || !editor) return null;
 
   const items = [
+    {
+      title: "AI Copilot Assistant",
+      subtitle: "Ask AI to generate, summarize, or rewrite",
+      icon: <Sparkles className="w-4 h-4 text-pink-500" />,
+      action: () => {
+        if (onSelectAI) onSelectAI();
+      },
+    },
     {
       title: "Heading 1",
       subtitle: "Big section heading",
