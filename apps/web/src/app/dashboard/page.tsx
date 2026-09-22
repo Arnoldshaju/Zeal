@@ -37,6 +37,7 @@ import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchCommand } from "@/components/ui/search-command";
+import { AnalyticsCharts } from "@/components/ui/analytics-charts";
 
 const SELECTED_WORKSPACE_KEY = "zeal:selected-workspace";
 
@@ -363,6 +364,9 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Productivity Analytics & Sprint Velocity Charts */}
+          <AnalyticsCharts documentCount={documents.length} />
 
           {/* Recent Documents Grid */}
           <section className="space-y-4">

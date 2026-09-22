@@ -23,6 +23,11 @@ import {
   WifiOff,
   UserPlus,
   Shield,
+  History,
+  Download,
+  Printer,
+  Sparkles,
+  FileText,
 } from "lucide-react";
 import {
   apiFetch,
@@ -39,6 +44,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { SlashCommandMenu } from "@/components/ui/slash-command-menu";
+import { RevisionDrawer } from "@/components/ui/revision-drawer";
+import { downloadFile, jsonToMarkdown, printDocument } from "@/lib/document-exporter";
 
 const EMPTY_DOCUMENT: JSONContent = {
   type: "doc",
@@ -56,6 +64,10 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
   const [canEdit, setCanEdit] = useState(false);
   const [presence, setPresence] = useState("Connecting...");
   const [sharingOpen, setSharingOpen] = useState(false);
+
+  // Advanced features state
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [revisionDrawerOpen, setRevisionDrawerOpen] = useState(false);
 
   const loadedRef = useRef(false);
   const canEditRef = useRef(false);
@@ -75,6 +87,13 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
     editorProps: {
       attributes: {
         class: "tiptap min-h-[550px] outline-none text-slate-900 dark:text-slate-100",
+      },
+      handleKeyDown: (view, event) => {
+        if (event.key === "/") {
+          // Open slash menu when user types /
+          setSlashMenuOpen(true);
+        }
+        return false;
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -235,10 +254,30 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
     );
   }
 
+  const handleExportMarkdown = () => {
+    if (!editor) return;
+    const md = jsonToMarkdown(editor.getJSON());
+    downloadFile(`${title.toLowerCase().replace(/\s+/g, "_") || "document"}.md`, md, "text/markdown");
+  };
+
+  const handleExportPDF = () => {
+    if (!editor) return;
+    const html = editor.getHTML();
+    printDocument(title || "Document", html);
+  };
+
+  const handleRestoreRevision = (revTitle: string, revContent: Record<string, unknown>) => {
+    if (!editor) return;
+    setTitle(revTitle);
+    titleRef.current = revTitle;
+    editor.commands.setContent(revContent as JSONContent, { emitUpdate: true });
+    setStatus("saved");
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-6 items-start">
       {/* Editor Main Canvas */}
-      <Card className="p-6 sm:p-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-md">
+      <Card className="p-6 sm:p-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-md relative">
         {/* Editor Sub-Header / Status Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-100 dark:border-slate-800">
           <input
@@ -250,7 +289,7 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
             className="w-full text-2xl sm:text-3xl font-extrabold tracking-tight bg-transparent text-slate-900 dark:text-slate-100 focus:outline-none disabled:text-slate-400"
           />
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
             {/* Status Indicator */}
             <div className="flex items-center gap-2 text-xs font-medium">
               {status === "saving" && (
@@ -274,6 +313,37 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>{presence}</span>
+            </div>
+
+            {/* Revision History Action */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRevisionDrawerOpen(true)}
+              title="View Revision History & Diffs"
+            >
+              <History className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="hidden sm:inline">History</span>
+            </Button>
+
+            {/* Export Menu Actions */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                onClick={handleExportMarkdown}
+                title="Export as Markdown (.md)"
+                className="px-2 py-1 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="hidden md:inline">.md</span>
+              </button>
+              <button
+                onClick={handleExportPDF}
+                title="Print / Save as PDF"
+                className="px-2 py-1 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+              >
+                <Printer className="w-3.5 h-3.5 text-purple-500" />
+                <span className="hidden md:inline">PDF</span>
+              </button>
             </div>
 
             <Button
@@ -408,8 +478,33 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
             >
               <Quote className="w-4 h-4" />
             </button>
+
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+            {/* Notion-like Slash Menu Launcher */}
+            <button
+              onClick={() => setSlashMenuOpen((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                slashMenuOpen
+                  ? "bg-indigo-600 text-white"
+                  : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
+              }`}
+              title="Insert Slash Block Menu"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>/ Blocks</span>
+            </button>
           </div>
         )}
+
+        {/* Slash Command Menu Popover */}
+        <div className="relative">
+          <SlashCommandMenu
+            editor={editor}
+            isOpen={slashMenuOpen}
+            onClose={() => setSlashMenuOpen(false)}
+          />
+        </div>
 
         {/* Tiptap Text Content Area */}
         <div
@@ -489,6 +584,17 @@ export function DocumentEditor({ documentId }: { documentId: string }) {
           </form>
         )}
       </Card>
+
+      {/* Revision Drawer Side Sheet */}
+      <RevisionDrawer
+        isOpen={revisionDrawerOpen}
+        onClose={() => setRevisionDrawerOpen(false)}
+        documentId={documentId}
+        currentTitle={title}
+        currentText={editor ? editor.getText() : ""}
+        onRestoreRevision={handleRestoreRevision}
+      />
     </div>
   );
 }
+
