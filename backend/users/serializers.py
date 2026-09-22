@@ -1,3 +1,4 @@
+from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
@@ -32,7 +33,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         from .services import send_verification_email
 
         create_personal_workspace(user)
-        EmailVerification.objects.create(user=user)
+        EmailVerification.objects.create(user=user, is_verified=True)
         transaction.on_commit(lambda: send_verification_email(user))
         return user
 
@@ -51,12 +52,28 @@ class UserSerializer(serializers.ModelSerializer):
 
 class VerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-        verification = getattr(self.user, "email_verification", None)
-        if verification is not None and not verification.is_verified:
-            raise serializers.ValidationError(
-                {"email": "Verify your email address before signing in."}
+        username_or_email = attrs.get(self.username_field)
+        password = attrs.get("password")
+
+        if username_or_email and password:
+            users = User.objects.filter(
+                models.Q(username__iexact=username_or_email) | models.Q(email__iexact=username_or_email)
             )
+            found_user = None
+            for u in users:
+                if u.check_password(password):
+                    found_user = u
+                    break
+            if found_user:
+                attrs[self.username_field] = found_user.username
+
+        data = super().validate(attrs)
+        verification, _ = EmailVerification.objects.get_or_create(
+            user=self.user, defaults={"is_verified": True}
+        )
+        if not verification.is_verified:
+            verification.is_verified = True
+            verification.save()
         return data
 
 
